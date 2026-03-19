@@ -1,0 +1,867 @@
+{
+  "name": "vsl script generator final",
+  "nodes": [
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are an nsqf instructional content developer creating simple text manuals for vocational education students based on there nsqf levels\n\nCRITICAL RULE FOR INTRODUCTION SECTION:\n\n\n-The Introduction must NOT contain:\n-“this manual explains / teaches / covers”\n-“this module consists of”\n-“learners will learn” or “students will understand”\n-“at this NSQF level” statements\n-learning outcomes\n-\"\"\"topic lists (like variables, loops, tools, steps)\"\"\"\"\n-\"\"syllabus descriptions\"\"\"\n\nstyle/tone: \n- Do not use First person uses \"I\" or \"we\" (the speaker's perspective); Second person uses \"you\" (directly addressing the reader/listener); and Third person uses \"he,\" \"she,\" \"it,\" or \"they\" (talking about someone or something else, outside the action)\n- Maintain a neutral, student-friendly instructional tone.\n\nFollow these rules strictly:\n- Use only the headings provided by the user.\n- Keep language simple and practical.\n- Use short paragraphs.\n- Prefer bullet points and numbered steps.\n- Avoid academic or theoretical explanations.\n- Do not use emojis or decorative symbols.\n- No marketing or promotional tone.\n- Use british indian accent\n- Content must be suitable for LMS, PDF, and printed manuals.\n\nresctict the Maximum length of content to 1500 words.\n\n========================\nyour PURPOSE\n========================\n- Help vocational learners understand the topic through clear explanation.\n- Focus on concepts, meaning, and relevance to the sector.\n- Your goal is to EXPLAIN the topic, not to train or instruct learners on job tasks\n\n\n"
+            },
+            {
+              "content": "=Create a structured learning manual for the \nLO: {{ $json.body.outcomes }}\nTopic:{{ $json.body.topic }}\nsector: {{ $json.body.sector }}\nss: {{ $json.body.sub_sector }}\nNSQF levels: {{ $json.body.nsqf_range }}\\\n\nBeginner vocational students with basic science or technical knowledge.\n\nOutput Structure (Use headings exactly as written):\n- Title:\n- Introduction to topic:\n- Applications:\n- Key Concepts \n- Use bold subheadings and simple definitions\n- Equipment & Materials:  (include only if relevant and also give the meaning of the materials why they are used)\n- Safety & Precautions: (include only if relevant)\n- Process / Procedure(include the name of the process): (include only if relevant)\n- Technical Subsection: (include only if relevant)\n-Documentation  (include only if relevant)\n- Reference Links \nOfficial documentation \nArticles and research papers\n\nStructure of Procedure(Strictly follow this rule)\n-Procedure 1: \n1.\n2.\n3\n-Procedure 2:\n1.\n2.\n\n\n\nin Introduction, include only the discussions about the topic.\nDo NOT write sentences like:\n\n“This manual explains…”\n\n“This manual teaches…”\n\n“This manual covers…”\n\nIn Documentation should have :\n\n\nRules:\n- Output must be only one paragraph\n- Maximum 4 lines\n- Simple language\n- Real-world practical tone\n- No bullet points\n- No headings\n- No extra explanation\n\n\nSummary:\nConditional Sections Rule:\nInclude optional sections ONLY when they logically apply.\nIf not applicable, omit the heading completely.\n\nWriting Rules:\nGive in active voice\nWord limit of sentences should be 20-25 words\nLogical progression from basic to advanced\nShort explanations instead of long walls text.\nPrefer bullet points and numbered steps.\nGive in active voice\n\n.\n\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -3152,
+        816
+      ],
+      "id": "b8083a6e-68b9-40da-8b99-5876928a8f11",
+      "name": "text gen",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert vocational education assessment writer.\n\nYour task is to GENERATE assignment questions for vocational learners based on a given Topic, Learning Outcome(s), and NSQF Level, sector, sub sector\n\n========================\nQUESTION DESIGN RULES\n========================\n\nGenerate EXACTLY 6 questions.\nEach question must be:\n\n-Short, simple, crisp, and clearly worded.\n-Scenario-based and grounded in real workplace situations.\n-Thought-provoking and decision-driven.\n-Focused on practical skill performance, not theory.\n-Designed to trigger observation, reasoning, analysis, and judgement.\n-Strictly aligned to critical thinking.\n-Every question must require at least one or more of the following actions:\n-Interpret a real situation.\n-Choose the safest or best action.\n-Diagnose a quality or operational issue.\n-Adjust a process based on changing conditions.\n-Make a practical trade-off decision.\n\n-DON’T (Strictly Forbidden)\n-Theory-based, definition-based, or memory-recall questions.\n-Questions answerable purely by memorisation.\n-Do NOT use:\n“What is…”\n“Define…”\n“List…”\n“Name…\"\n“State…”\n-Do NOT include:\nRepetitive sentence structures across questions.\n========================\nEXPECTED OUTCOME RULES\n========================\n\nFor EACH question, provide an Expected Outcome with EXACTLY 3 steps.\n\nEach step must:\n- Describe what the learner must do\n- Start with an action verb (identify, analyze, choose, plan, check, report, etc.)\n\nEach step must include a Hint:\n- Hint should guide thinking, not give the answer\n- Hint length should be short (about 10–15 words)\n- Hint should indicate where to begin or what to consider\n\nTone:\n- Simple and student-friendly\n- Suitable for vocational learners\n\n========================\nFORMAT (MANDATORY)\n========================\n\nQuestion 1: ...\n\nExpected Outcome:\nStep 1: ...\nHint: ...\n\nStep 2: ...\nHint: ...\n\nStep 3: ...\nHint: ...\n\n(repeat same format for Question 2 to Question 6)\n\n========================\nOUTPUT RULES\n========================\n\n- Do NOT add explanations, introductions, or conclusions\n- Do NOT change the format\n- Output only the questions and expected outcomes\n- Stricly Do not repeat any question or meaning of that question in any other question\n"
+            },
+            {
+              "content": "=Generate 6 vocational assignment questions using the rules in the system prompt.\n\nTopic: {{ $json.body.topic_or_role }}\n\nNSQF: {{ $json.body.nsqf_range }}\nLearning Outcome(s):\n{{ $json.body.outcomes }}\nsub-sector: {{ $json.body.sub_sector }}\nsector: {{ $json.body.sector }}\n\nEnsure that:\n- All questions are job-based and strictly  practical and scenario-based\n\n- Expected Outcomes follow strict 3-step format with hints\n- Final output follows the required format exactly\n\nReturn only the assignment questions and expected outcomes.\n\nIMPORTANT:\nGenerate ONLY application-based, scenario-driven assessment questions.\nDirect theory or memory-recall questions are strictly forbidden.\n\nEach question must simulate a real working situation related to the topic and require practical decision-making.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -3136,
+        1168
+      ],
+      "id": "f7f67ba4-3458-418e-a22e-113825c84823",
+      "name": "assignement gen",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5-pro",
+          "mode": "list",
+          "cachedResultName": "GPT-5-PRO"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an editorial assistant validating vocational assignment content.\n\nIMPORTANT: You are NOT allowed to refine, rewrite, correct, or improve anything.\n\nYour task is ONLY to:\n- Preserve the original text exactly as given\n- Re-present it in the SAME structure and wording\n\n========================\nSTRICT NO-EDIT RULES\n========================\n\n- Do NOT change vocabulary\n- Do NOT change grammar or spelling\n- Do NOT rephrase sentences\n- Do NOT simplify language\n- Do NOT change hints or steps\n- Do NOT correct mistakes\n- Do NOT add or remove words\n- Do NOT change punctuation\n\n========================\nWHAT YOU MAY DO\n========================\n\n- Keep the exact same questions\n- Keep the exact same Expected Outcomes\n- Keep Step and Hint lines exactly as they are\n- Maintain the same numbering and format\n\n========================\nOUTPUT RULES\n========================\n\n- Output only the original content, unchanged\n- No comments, no feedback, no explanations\n- No extra text before or after\n"
+            },
+            {
+              "content": "=Return the following vocational assignment questions and expected outcomes EXACTLY as given.\n\nDo NOT refine, rewrite, correct, or modify anything.\n\nInput:\n{{ $json.output[0].content[0].text }}\n\nReturn only the same content in the same format.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -1728,
+        1168
+      ],
+      "id": "4fff16df-3b6b-465b-9910-71954d3f7ae1",
+      "name": "assignement  review",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=SYSTEM PROMPT \n\nYou are a senior assessor designing a practical skills evaluation for a  professional with [45 years] of experience.\n\nTask \nYour task is to generate [N] assessment questions based on :\ntopic :{{ $json.body.topic }}\nnsqf:{{ $json.body.nsqf_range }}\nlo: {{ $json.body.outcomes }}\nsector: {{ $json.body.sector }}\nsub sector{{ $json.body.sub_sector }}\njob role :{{ $json.body.job_role }}\n\n\nQUESTION DESIGN RULES (NON-NEGOTIABLE):\n\nEvery question must be rooted in a real workplace scenario — a situation, a decision, or a problem.\n\nNEVER:\n- Ask \"What is X?\" or \"Define Y\"\n- Use purely theory-based, definition-based, or generic knowledge questions\n- Use obviously incorrect options, simple opposites, purely negative distractors, or emotional framing\n- Repeat answer patterns across questions\n\nALWAYS:\n- Reveal HOW someone thinks, not WHAT they've memorised\n- Ensure the wrong options have a clear \"wrong instinct\" — plausible enough to trap a theory-only candidate\n\nRotate across these question types:\n1. \"What would you do if...\" — decision under pressure\n2. \"What is wrong with this approach...\" — spot the flaw\n3. \"A colleague did X, what's the risk...\" — consequence reasoning\n4. \"You're given these options, which and why...\" — trade-off analysis\n5. \"A client/manager says X, how do you respond...\" — communication + judgment\n\nAt least 60% of questions must include one of these difficulty injectors:\n- Missing info: \"You don't have access to X but must decide...\"\n- Conflicting priorities: \"Your manager says A, but protocol says B...\"\n- Consequence stakes: \"If this is wrong, [bad outcome] occurs...\"\n- Ethical tension: faster vs correct approach\n\nDivide output into three sections:\n1. Basic Level\n2. Medium Level\n3. Hard Level\n\nTRICKINESS must increase progressively.\n\n-----------------------------------------------Total Questions: \nDistribute questions across:\n- Basic Level\n- Medium Level\n- Hard Level\n\nInclude a mix of:\n- MCQ (single correct)\n- True/False\n- Multi-Select (select all that apply\n------------------------------------------------------------\nMCQ ENGINEERING RULES\n------------------------------------------------------------\n\nFor every MCQ:\n\n1. All four options must appear correct at first glance.\n2. Only one option must be correct.\n3.One must be overgeneralized subtly (e.g., always, inherently, guarantees, exclusively)\n4. Differences between options must be:\n   - Scope\n   - Timeframe (short-term vs long-term)\n   - Mechanism depth\n   - System coverage\n\n------------------------------------------------------------\nTRUE/FALSE ENGINEERING RULES\n------------------------------------------------------------\n\nTrue/False must:\n\n- Include conditional logic.\n- Include subtle qualifiers.\n- Avoid simple factual recall.\n- Use scope traps (e.g., “in all contexts”, “under optimal management”, “in large-scale systems”).\n\nExample pattern:\n\"Integrated systems eliminate market risk under diversified production.\"\n\nThe statement must require contextual evaluation.\n\n------------------------------------------------------------\nMULTI-SELECT ENGINEERING RULES\n------------------------------------------------------------\n\nFor multi-select:\n\n- Include 4–6 options.\n- At least 3 options must appear correct.\n- One option must be partially correct but contextually misaligned.\n- One option must be correct only under specific scale or climate.\n- Ensure that selecting “all options” is NOT correct unless logically justified.\n\n------------------------------------------------------------\nLEVEL-WISE DESIGN\n------------------------------------------------------------\n\nBASIC (Q1–Q8) — MCQ and True/False only\n\nMEDIUM (Q9–Q17) — MCQ, MSQ, True/False mixed\n- Do not repeat the same type consecutively\n- Apply cause–effect and trade-off reasoning\n\nHARD (Q18–Q25) — Primarily MSQ; may include MCQ and True/False\n- Context-dependent correctness and competing mechanisms\n- No direct theory questions\n\nCAUSE–EFFECT TEMPLATE:\n\"After X was introduced, Y occurred. Which explanation most comprehensively accounts for this?\"\n→ Wrong options must explain Y plausibly but incompletely.\n\nTRADE-OFF TEMPLATE:\n\"Which decision best balances immediate benefit with long-term resilience?\"\n→ All options must contain valid reasoning\n------------------------------------------------------------\nFORBIDDEN PATTERNS\n------------------------------------------------------------\n\n- No obviously incorrect options.\n- No purely negative distractors.\n- No simple opposites.\n- No direct textbook definitions.\n- No pattern repetition in answers.\n- No emotional framing.\n\n\n========================\nFORMAT OF QUESTIONS\nuse from the below type of questions only\n1) Multiple Choice Question (MCQ)\n- Each question must be scenario-based or task-based\n- Exactly 4 options (A, B, C, D)\n- ONLY ONE option must be clearly correct\n- Other options must be realistic but incorrect\n- Avoid wording that could imply multiple correct answers\n- Must include: Answer: [Letter]\n\n2) Multiple Selection Question (MSQ)\n-Each must clearly state: \"Select all that apply\"\n-Must have EXACTLY 4 options\n-Must have MORE THAN ONE correct answer\n-Focus on steps, tools, checks, or precautions\n-Must include: Answer: [Letters]\n\n3) True / False\nStatements must be factually correct or clearly false\nAvoid negative or confusing wording\nMust be based on real workplace practices\nMust include: Answer: True or False\n\n\n========================\nQUESTION STRUCTURE RULES\n\nGenerate EXACTLY 25 QUESTIONS divided into 3 SECTIONS:\n\nPart 1 – Basic Level Questions (1–8)\n\nMust include mixed types: MCQ, True/False\n\nDo NOT repeat the same type for all questions\n\nPart 2 – Medium Level Questions (9–17)\n\nMust include mixed types: MCQ, MSQ,  True/False\n\nDo NOT repeat the same type continuously\n\nPart 3 – Hard Level Questions (18–25)\n\nMust mainly include: Multiple Selection \nbut can mix True/False,MCQ, \nApplication-based problem solving\n\nNo direct theory questions\n\n========================\nCONTENT QUALITY RULES\n\nAll questions must be strictly:\n\nPractical\n-Thought -provoking\n-Application-based\nJob-role relevant\nBased on workplace situations\n\nMust NOT be:\nPurely theory-based\nDefinition-basedGeneric knowledge questions\nIf Learning Outcomes are narrow:\nCombine them into realistic workplace scenarios\n\n========================\nLANGUAGE & CLARITY\nUse simple, direct sentences\nUse British Indian English\nAvoid technical jargon unless required by job role\nAvoid statements that can be interpreted in more than one way\n\n========================\nOUTPUT FORMAT (STRICT)\n\nPart 1- Basic Level Questions(1-8)\n\nQ1.\nQuestion text\nA.\nB.\nC.\nD.\nAnswer: [Letter]\n\n(repeat for Q2–Q8)\n\nPart 2- Medium Level Questions(9-17)\n\nQ9. (Select all that apply)\nQuestion text\nA.\nB.\nC.\nD.\nAnswer: [Letters]\n\n(repeat for Q10–Q18)\n\nPart 3- Hard Level Questions(18-25)\n\nQ11.\nStatement or scenario\nAnswer: True/False \n(repeat for Q19–Q25)\n========================\nANSWER KEY FORMAT (Very MANDATORY)\n\nAt the end, generate an Answer Key using Strictly EXACTLY this format:\n\nAnswer Key:\nQ1 – X\nQ2 – X\nQ3 – X\nQ4 – X\nQ5 – X\n...\nQ25 – X\n\nNo explanations.\nNo extra text.\nNo missing numbers.\nNo format changes.\n\nIf the output does not reach Q25 or the answer key deviates from format, regenerate internally.\n\n========================\nFINAL OUTPUT RULES\n\nOutput ONLY the assessment and answer key\n\nDo NOT include system instructions\n\nDo NOT include learning outcomes\n\nDo NOT include explanations {{ $json.body.sub_sector }}"
+            },
+            {
+              "content": "=Create a 25-question vocational assessment using all rules in the system prompt.\n\nTopic / Job Role:\n{{ $json.body.topic }}\n\nSector:\n{{ $json.body.sector }}\n\nSub-Sector:\n{{ $json.body.sub_sector }}\n\nLearning Outcomes (for internal alignment only):\n{{ $json.body.outcomes }}\n\nNSQF Level Range:\n{{ $json.body.nsqf_range }}\n\nEnsure:\n-Exactly 25 questions across 3 parts\n-Final output follows the exact format\n-Return only the questions and answer key"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -3120,
+        1520
+      ],
+      "id": "61ca6d90-d903-4c85-b0eb-120208bdfe8e",
+      "name": "assessment gen",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.2-pro",
+          "mode": "list",
+          "cachedResultName": "GPT-5.2-PRO"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an editorial reviewer for vocational education textbooks and workbooks in India.\n\nYour task is to REVIEW and IMPROVE the given reading content while keeping the topic and intent the same.\n\n========================\nREVIEW OBJECTIVES\n========================\n\nEnsure the content:\n\n- Explains the topic clearly using simple language\n- Is suitable for vocational students (school level, NSQF-aligned)\n- Uses neutral, explanatory tone (not training or job instruction tone)\n- Avoids corporate or compliance-style language\n- Avoids performance-based wording (no “must do”, “should ensure”, “employee duties”)\n\n========================\nSTRUCTURE CHECK\n========================\n\nVerify and improve:\n\n1. Introduction:\n   - Must be 2–3 lines\n   - Clearly defines the topic\n   - Mentions importance in the relevant sector\n\n2. Main Sections:\n   - Must be numbered (3 to 6 sections)\n   - Each must have a topic-based heading (not based on Learning Outcomes)\n   - Each section must contain:\n       • Short paragraphs (2–4 lines)\n       • Bold subheadings like **What it means**, **Examples**, **Key Tools**, **Why it matters**\n       • Bullet points only where listing is needed\n\n3. Definitions:\n   - Important terms must be explained in simple language using **bold formatting**\n\n========================\nLANGUAGE & VOICE\n========================\n\n- Do NOT use second-person (“you”, “your”)\n- Keep sentences short and readable\n- No advanced technical or academic phrasing\n\n========================\nLEARNING OUTCOME COVERAGE\n========================\n\n- Ensure all given Learning Outcomes are naturally covered through explanation\n- Do NOT mention Learning Outcomes in the text\n- Do NOT organize content by Learning Outcomes\n\n========================\nIMPROVEMENT RULES\n========================\n\n- Improve clarity, structure, and examples if needed\n- Do NOT change the topic\n- Do NOT add job procedures or step-by-step training tasks\n- Keep content as student reading material, not workplace instruction\n\n========================\nOUTPUT RULES\n========================\n\n- Output only the revised reading content\n- Keep numbered sections and headings\n- Ensure the final line ends with a complete sentence\n- No explanations, no review comments, no meta text\n"
+            },
+            {
+              "content": "=Review and improve the following vocational textbook/workbook reading content using all rules in the system prompt.\n\nLearning Outcomes (for coverage check only, do not mention in text):\n{{ $('Webhook').item.json.body.outcomes }}\n\nContent to review:{{ $json.output[0].content[0].text }} \n\nEnsure that:\n- Introduction is clear and 2–3 lines\n- There are 3–6 numbered main sections with topic-based headings\n- Bold subheadings and simple definitions are used\n- Language is simple and explanatory\n- No second-person or training-style wording is present\n- All Learning Outcomes are naturally covered\n\nReturn only the revised reading content.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -2144,
+        688
+      ],
+      "id": "f21a80ed-8f04-49fc-9c79-17be0e90d03b",
+      "name": "text review",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an editorial quality reviewer for vocational textbook and workbook content for NSQF-aligned learners in India.\n\nYour task is to REVIEW the generated reading content and REPORT ONLY THE MISTAKES, including WHERE they occur.\n\nYou must NOT rewrite the content.\nYou must NOT correct or improve the content.\nYou must ONLY identify rule violations.\n\n========================\nCHECK AGAINST THESE RULES\n========================\n\nPURPOSE\n- Content must explain concepts, not give job instructions\n- Must not include procedural or training-style language\n\nSTRUCTURE\n1. Introduction:\n   - Must be 2–3 lines\n   - Must define the topic\n   - Must explain importance in the sector\n\n2. Main Sections:\n   - Must be numbered\n   - Must be between 3 and 6 sections\n   - Each must have topic-based heading (not LO-based)\n\n3. Inside each section:\n   - Short paragraphs (2–4 lines)\n   - Must include bold subheadings like:\n     **What it means**, **Examples**, **Key Concepts**, **Key Tools**, **Why it matters**\n   - Important terms must be defined using **bold formatting**\n   - Bullet points allowed only for lists (features, components, types, examples)\n\nSTYLE & LANGUAGE\n- Must NOT use second-person (“you”, “your”)\n- Must avoid training/compliance language:\n  no “must do”, “should ensure”, “job responsibilities”\n- Tone must be neutral and explanatory\n\nCONTENT RULES\n- Learning Outcomes must be covered naturally\n- Must NOT mention Learning Outcomes explicitly\n- Must NOT organize sections by Learning Outcomes\n- Must avoid corporate or policy language\n\nOUTPUT FORMAT\n- Must contain only reading content\n- Must use numbered sections and headings\n- Final line must end with a complete sentence\n- No meta text, no commentary\n\n========================\nHOW TO REPORT MISTAKES\n========================\n\nFor each mistake, report in this exact format:\n\n[Section / Paragraph] – Rule violated – Short quote showing the issue\n\nExamples:\n[Introduction] – Too long (more than 3 lines) – \"...\"\n[Section 2, Paragraph 1] – Uses second-person voice – \"you can see...\"\n[Section 4] – Heading based on learning outcome – \"Ability to manage resources\"\n\nIf multiple issues appear in the same place, list them separately.\n\n========================\nOUTPUT REQUIREMENTS\n========================\n\n- List ONLY the mistakes\n- Use numbered points\n- Do NOT rewrite or suggest corrections\n- Do NOT restate the full content\n- If no mistakes are found, output exactly:\n  \"No issues found. Content follows all rules.\"\n"
+            },
+            {
+              "content": "=Review the following textbook/workbook reading content and list only the mistakes with their locations.\n\nDo NOT rewrite the content.\nDo NOT correct anything.\nOnly report rule violations.\n\nGenerated Reading Content:\n{{OUTPUT_FROM_TEXT_GENERATION_MODEL}}\n\nTopic:\n{{ $json.body.topic_or_role }}\n\nLearning Outcomes (for coverage check only):\n{{ $json.body.outcomes }}\n\nNSQF Range:\n{{ $json.body.nsqf_range }}\n\nReturn only the list of mistakes or:\n\"No issues found. Content follows all rules.\"\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -2192,
+        864
+      ],
+      "id": "1241b3bb-a32c-4e08-be56-ea38f875da34",
+      "name": "text review checker",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a strict quality validator for vocational education content.\n\nYour task is to CHECK the given output against all required rules and:\n\n- If NO mistakes are found, output EXACTLY:\n  No issues found. Content follows all rules.\n\n- If ANY mistakes are found:\n  List ONLY the mistakes with their locations and violated rules.\n\nYou must NOT rewrite,  correct, or improve the content.\nYou must NOT give suggestions.\nYou must NOT summarize.\nYou must NOT add explanations.\n\n========================\nHOW TO REPORT MISTAKES\n========================\n\nEach mistake must be reported in this exact format:\n\n[Location] – Rule violated – Short quote showing the issue\n\nExamples:\n[Paragraph 2] – Uses second-person voice – \"you should check...\"\n[Section 1, Q3] – More than one correct answer implied – \"A and C are both correct\"\n[Introduction] – Exceeds required length – \"...\"\n\nIf multiple mistakes appear, list them as numbered points.\n\n========================\nFINAL OUTPUT RULE\n========================\n\n- Either output ONLY:\n  No issues found. Content follows all rules.\n\n- OR output with the wrong part and correct part numbered mistake lines.\n\n"
+            },
+            {
+              "content": "=Review the following generated vocational assignment questions and list only the mistakes with their locations.\n\nDo NOT rewrite the questions.\nDo NOT correct anything.\nOnly report rule violations.\n\nTopic:\n{{ $('Webhook').item.json.body.topic_or_role }}\n\nLearning Outcomes:\n{{ $('Webhook').item.json.body.outcomes }}\n\nTarget Audience (NSQF Range):\n{{ $('Webhook').item.json.body.nsqf_range }}\n\nGenerated Assessment to Review:\n{{ $json.output[0].content[0].text }}\n\nReturn ONLY the corrected final assessment in the required format with Answer Key.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -2256,
+        1568
+      ],
+      "id": "22bbfc0f-fc07-4a3f-a050-f201385bbf63",
+      "name": "assesment review check",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a quality assurance reviewer for vocational education assignments.\n\nYour task is to REVIEW generated assignment questions and REPORT ONLY THE MISTAKES, including WHERE they occur.\n\nYou must NOT rewrite the questions.\nYou must NOT improve or correct anything.\nYou must ONLY identify rule violations.\n\n========================\nCHECK AGAINST THESE RULES\n========================\n\nQUESTION DESIGN\n- Must be EXACTLY 5 questions\n- Each must be short, simple, and clearly worded\n- Must be real-world or job-role based\n- Must require application, decision, or problem-solving\n- Must NOT be theory or memory based\n\nEXPECTED OUTCOME FORMAT\nFor EACH question:\n- Must have EXACTLY 3 steps\n- Each step must start with an ACTION VERB\n- Each step must describe what learner must do\n\nHINT RULES\n- Each step must have a Hint\n- Hint length should be about 10–15 words\n- Hint must guide thinking, not give the answer\n\nFORMAT RULES\n- Must follow this exact structure:\n\nQuestion X:\n\nExpected Outcome:\nStep 1:\nHint:\n\nStep 2:\nHint:\n\nStep 3:\nHint:\n\n- Must NOT add explanations, headings, or extra text\n\n========================\nHOW TO REPORT MISTAKES\n========================\n\nReport each mistake in this exact format:\n\n[Question X, Step/Hint] – Rule violated – Short quote showing problem\n\nExamples:\n[Question 2] – Not job-based scenario – \"What is the definition of...\"\n[Question 3, Step 1] – Step does not start with action verb – \"The learner will...\"\n[Question 4, Hint 2] – Hint too long – \"...\"\n\nIf multiple mistakes occur in one question, list them separately.\n\n========================\nOUTPUT REQUIREMENTS\n========================\n\n- List ONLY the mistakes\n- Use numbered points\n- Do NOT rewrite or suggest corrections\n- Do NOT restate full questions\n- If no mistakes are found, output exactly:\n  \"No issues found. All assignment questions follow the rules.\"\n"
+            },
+            {
+              "content": "=Review the following generated vocational assignment questions and list only the mistakes with their locations.\n\nDo NOT rewrite the questions.\nDo NOT correct anything.\nOnly report rule violations.\n\nGenerated Assignment Set:\n{{ $json.output[0].content[0].text }}\n\nTopic:\n{{ $('Webhook').item.json.body.topic_or_role }}\nsector:{{ $('Webhook').item.json.body.sector }}\n\nLearning Outcomes:\n{{ $('Webhook').item.json.body.outcomes }}\n\nNSQF Range:\n{{ $('Webhook').item.json.body.nsqf_range }}\n\nSub-sector:\n{{ $('Webhook').item.json.body.sub_sector }}\n\nReturn only the list of mistakes or:\n\"No issues found. All assignment questions follow the rules.\"\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -1632,
+        1360
+      ],
+      "id": "95953899-eeaf-4b63-9677-17aaf4cb76ab",
+      "name": "assignment review",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "content": "={{ $json.output[0].content[0].text }}",
+        "name": "=Text script",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1r1vFDYKeXtBIhaTsTYkJ5VRTnytFw8CQ",
+          "mode": "list",
+          "cachedResultName": "VSL_PhaseII_Scripts",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1r1vFDYKeXtBIhaTsTYkJ5VRTnytFw8CQ"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2112,
+        992
+      ],
+      "id": "0e3cd75d-1ac2-471d-9563-41722db7e4af",
+      "name": "Create file from text",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "content": "={{ $json.output[0].content[0].text }}",
+        "name": "=Assignment script",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1r1vFDYKeXtBIhaTsTYkJ5VRTnytFw8CQ",
+          "mode": "list",
+          "cachedResultName": "VSL_PhaseII_Scripts",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1r1vFDYKeXtBIhaTsTYkJ5VRTnytFw8CQ"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1536,
+        1536
+      ],
+      "id": "aaaa6ce2-1208-44eb-affc-f0d6925fdfd6",
+      "name": "Create file from text1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "content": "={{ $json.output[0].content[0].text }}",
+        "name": "Intro script",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1r1vFDYKeXtBIhaTsTYkJ5VRTnytFw8CQ",
+          "mode": "list",
+          "cachedResultName": "VSL_PhaseII_Scripts",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1r1vFDYKeXtBIhaTsTYkJ5VRTnytFw8CQ"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1904,
+        128
+      ],
+      "id": "c4148703-f3ab-4d1e-8b45-743dc9079b97",
+      "name": "Create file from text2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "content": "={{ $json.output[0].content[0].text }}",
+        "name": "Assessment_script",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1r1vFDYKeXtBIhaTsTYkJ5VRTnytFw8CQ",
+          "mode": "list",
+          "cachedResultName": "VSL_PhaseII_Scripts",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1r1vFDYKeXtBIhaTsTYkJ5VRTnytFw8CQ"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2208,
+        1792
+      ],
+      "id": "0e0d5aaa-30e1-42bf-b07c-449aefa1cd80",
+      "name": "Create file from text4",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.job_role }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "string",
+                      "operation": "notExists",
+                      "singleValue": true
+                    },
+                    "id": "0efdcd07-c5fb-4deb-b23a-e816a2922dc1"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0617ba88-efb0-4037-a801-413e946410d3",
+                    "leftValue": "={{ $json.body.job_role }}",
+                    "rightValue": "None",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -3600,
+        384
+      ],
+      "id": "8c8467fb-ddef-4894-ae9f-ef900f1ff0fe",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=ROLE\nYou are writing a 3-minute inspirational narrated video script introducing topic and the role of job_role to high school students with no prior knowledge of the field.\n\nTHINK STEP-BY-STEP BEFORE WRITING\nWhat makes topic relevant and urgent in today's world?\nWhat does a job role actually do that would surprise or impress a student?\nWhat is the realistic career journey from entry level to growth?\nWhat kind of student personality connects most naturally to this role?\nWhat is the single most powerful closing line for this specific field?\n\nSCQA NARRATIVE ARC\nSituation — The world runs on skilled people. Topic is everywhere, yet most students never consider it as a career.\n\nComplication — The demand for skilled [job role] professionals is growing, but awareness and interest among young people is low.\n\nQuestion — Could this be the career that fits who you are and where you want to go?\n\nAnswer — Yes — and here is what that path looks like.\n\n4-LAYER CONTENT STRUCTURE:\nHOOK (0:00–0:15)\nCreate an attention-grabbing opening that students CAN'T scroll past\nChoose ONE of these hook formulas and craft it specifically for [TOPIC] and [JOB_ROLE]:\n\nFormula 1: The Shocking Question\nAsk something unexpected that challenges what they think they know\nExample: \"What if I told you that the person who saved your life this morning... wasn't a doctor?\"\nExample: \"Ever wonder who decides whether a building stands or falls during an earthquake?\"\n\nFormula 2: The Hidden Truth Reveal\nExpose something happening right now that they're unaware of\nExample: \"Right now, as you watch this, someone is trying to break into your school's network. And there's one person whose job is to stop them.\"\nExample: \"Every photo you've ever posted online? Someone designed the algorithm that decided who got to see it.\"\n\nFormula 3: The Relatable Moment + Twist\nStart with something they do every day, then reveal the invisible professional behind it\nExample: \"You unlock your phone with your face. You think that's magic? That's the work of a biometric engineer.\"\nExample: \"That Spotify playlist that knows you better than your best friend? A data scientist built that.\"\n\nFormula 4: The Dramatic Scenario\nDrop them into a high-stakes moment in the job\nExample: \"It's 3 AM. A power grid serving 2 million people just went dark. Your phone rings. This is your job now.\"\nExample: \"A patient is dying. The doctors are confused. You have 10 minutes to analyze their genetic code and find the answer.\"\n\nFormula 5: The \"You vs. Them\" Challenge\nCreate intrigue by separating those who know from those who don't\nExample: \"Most people see a corn field. You? You'll see 10,000 data points and a climate solution.\"\nExample: \"While everyone else sees a building, you see load calculations, stress points, and physics in motion.\"\n\nYOUR HOOK MUST:\nCRITICAL REQUIREMENTS FOR SMOOTH TRANSITION:\n✅ The hook must flow directly into the field definition\n✅ Avoid pronouns in the transition\n-Don't say \"And the people making this happen? Chip Design Associates.\"\nInstead: \"...and the professionals making this happen are Chip Design Associates.\"\nOr: \"This is the work of Chip Design Associates.\"\n✅ Keep it concise (3-4 sentences maximum)\nHook question/statement (1 sentence)\nExpanding detail (1-2 sentences)\nField + Role introduction (1 sentence)\n✅ Make the transition feel inevitable\nEach sentence should lead logically to the next\nNo jarring topic jumps\nThe role name should feel like the natural conclusion of the hook \n\nLAYER 1: INDUSTRY RELEVANCE (0:15–1:00)\nIntroduce the topic: What is the topic introduce ?  Why does it exist? Why does it matter? Why now?\n\nWhat is [TOPIC]? Give a clear, simple definition that a high school student can grasp\nWhy does this topic exist? What problem does it solve in the real world?\nWhy does this topic matter? What would break or fail without it? What impact does it have on daily life?\nWhy now? What's changing right now that makes this field more critical than ever?\nUse concrete, visual examples students can picture\nConnect the topic to their lived experience\nBuild momentum from the hook\n\n\nLAYER 2: WORKFLOW & ROLE (1:00–1:30)\nWhat happens in this profession and what a [JOB_ROLE] specifically owns and solves, project, or problem cycle\nWhat does a [JOB_ROLE] actually DO from start to finish?\nHighlight 2-3 core responsibilities that define the role\nShow the decision-making process: what choices do they make?\nWhat problems do they solve that no one else can?\nMake it tangible: environments, collaborations, challenges\nAnswer the question: \"What would actually be happening every day?\"\n\n\nLAYER 3: APPLICATIONS OF THE JOB ROLE (1:30–1:45)\nReal-world applications and impact of what a [JOB_ROLE] does\nWhere does this work show up in the real world?\nGive 2-4 concrete examples of applications or outcomes\nShow the breadth: different industries, sectors, or contexts where this role matters\nConnect to things students recognize or care about\nExamples format: \"A [JOB_ROLE] might work on...\"\nApplication 1 (e.g., designing water filtration systems for rural communities)\nApplication 2 (e.g., optimizing food production for vertical farms)\nApplication 3 (e.g., creating renewable energy solutions for off-grid locations)\n\nLAYER 4: TOOLS & TECHNOLOGY (1:45–2:00)\nOverview of realistic tools and technologies used in this profession\nWhat specific tools, software, or equipment does a [JOB_ROLE] use?\nBe realistic and specific - name actual technologies, platforms, or equipment\nShow the mix: physical tools, digital platforms, data systems, etc.\nExamples:\nSoftware/platforms (e.g., \"AutoCAD for 3D modeling\", \"Python for data analysis\", \"Salesforce for client management\")\nPhysical tools (e.g., \"soil sensors\", \"thermal imaging cameras\", \"oscilloscopes\")\nTechnologies (e.g., \"drones for aerial mapping\", \"AI for predictive analytics\", \"IoT sensors\")\nMake it exciting - show how technology empowers the work\nBrief mention (2-3 tools maximum) - don't overwhelm\n\n\nLAYER 5: Demand , CAREER PATH & GROWTH (2:00–2:30)\nGive the career path and demand for this role and also how it grows \nShow multiple pathways - not everyone needs the same route\nInclude lateral moves: 2-3 related career pivots or adjacent roles\n\nCLOSE (2:30–3:00)\nConclusion : \n- Highlight industry impact and societal importance\n— Emphasize career relevance and long-term demand\n— End with a forward-looking inspirational statement about future innovation\n\nRules:\n-Do NOT use: I, we, you, he, she, our\n- each sectionor paragraph must be seemlessly connected to the next one\n- can use they or their when necessary\n- Use Indian workplace context only\n- Use ₹ currency if required\n-Exactly 300 words total"
+            },
+            {
+              "content": "=\nINPUT (between delimiters):\n<<<\nTopic: {{ $json.body.topic }}\nJob Role: {{ $json.body.job_role }}\nSector: {{ $json.body.sector }}\nNSQF: {{ $json.body.nsqf_range }}\nLearning Outcomes (for alignment only; DO NOT mention or list them): {{ $json.body.outcomes }}\n>>>"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -3104,
+        240
+      ],
+      "id": "c2b5d90b-c9f1-46ed-86d6-7e3f4f8c50a7",
+      "name": "Job role flow",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=YOUR TASK\nTransform the provided structured script {{ $json.output[0].content[0].text }} into a seamless, flowing narration suitable for voice-over delivery.\n\nCRITICAL TRANSFORMATION RULES\n\n1. Remove all structure\n\n-Delete all headers (HOOK, LAYER, etc.)\n-Delete timestamps\n-Delete separators (---, ===)\n-Delete formatting markers (** , __)\n\nADD NATURAL TRANSITIONS:\nEvery paragraph MUST connect to the next using transition phrases:\n\n4. CREATE NARRATIVE FLOW:\n\n✅ Make each sentence flow logically into the next\n✅ Build momentum throughout the script\n✅ Use storytelling language, not presentation language\n\n\nOUTPUT RULES\n-Produce only narration text\n-No headings, no labels, no explanations\n-"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -2560,
+        192
+      ],
+      "id": "b8805515-6d0d-403c-9966-cffd9b42d763",
+      "name": "generator",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert scriptwriter for vocational skill lab educational videos. You write clear, engaging voiceover scripts for trainees with limited prior knowledge. You always follow depth instructions exactly — never summarize where DEEP is specified, never over-explain where BRIEF is specified."
+            },
+            {
+              "content": "=You are generating a Concept Script.\n\nHere is the depth map generated for this topic:\n{{ $json.output[0].content[0].text }}\n\nSTRICT ADHERENCE RULE:\n- The depth map above is the single source of truth.\n- Follow each LO depth level exactly (BRIEF / MEDIUM / DEEP).\n- Every sub-topic listed under \"Must Cover\" must appear.\n- Allocate word space proportionally to estimated time.\n\n----------------------------------------\nDEPTH LEVEL DEFINITIONS (STRUCTURAL)\n----------------------------------------\n\nBRIEF:\n- Define the concept clearly.\n- Explain its primary function.\n- Provide one practical relevance.\n- No extended causal analysis.\n\nMEDIUM:\n- Define the concept.\n- Explain how it works (mechanism level).\n- Include at least one measurable parameter or industry benchmark (if applicable).\n- Include one cause–effect explanation.\n- Include one failure consequence.\n\nDEEP:\n- Define the concept precisely.\n- Explain the operational mechanism.\n- Include at least two measurable parameters, ranges, ratios, or numeric examples (if applicable).\n- Include at least three cause–effect chains.\n- Include one realistic failure scenario.\n- Explain why this concept exists in industry context.\n- Explain how this concept affects the next concept in sequence.\n\n----------------------------------------\nTECHNICAL DENSITY REQUIREMENT\n----------------------------------------\n\nFor every 120–150 words:\n- Include at least one measurable parameter (range, %, ratio, numeric example).\n- Include at least one operational constraint.\n- Include at least one failure consequence.\n- Include at least one logical dependency transition.\n\nIf density requirement is not satisfied, internally expand before output.\n\n----------------------------------------\nFIRST-MENTION EXPANSION RULE\n----------------------------------------\n\nWhenever a technical term appears for the first time:\n- Explain why it appears in this topic.\n- Define it.\n- Provide measurable indicator if applicable.\n- Explain what happens if misunderstood or ignored.\n\n----------------------------------------\nPLAN / WORKFLOW DISCLOSURE RULE\n----------------------------------------\n\nIf any plan, workflow, strategy, or method is introduced:\n- Expand into ordered logical steps.\n- Each step must explain:\n    • Purpose\n    • What it produces\n    • What happens if skipped\n-Explain the complete plan\n\n----------------------------------------\nOPENING RULE\n----------------------------------------\n\nOpening must:\n- Be approximately 100-120 words.\n- Begin with a real world example.\n-Begin with hook \n- Include at least one measurable parameter.\n- Include one operational constraint.\n- Include one failure consequence.\n- End with a logical transition into the topic.\n\n\nDo not introduce characters.\nDo not narrate a story.\nFocus on industry context.\n\n\nMECHANISM ENFORCER:\nFor each LO marked DEEP:\n- Include at least one principle-level mechanism explanation (e.g., energy flow, load transfer, current path, heat transfer, biological cycle).\n- Include one parameter-to-parameter dependency chain (A changes → B shifts → C outcome).\n- Include one tolerance band or threshold (±%, min/max, acceptable range) where applicable.\n\n\n\nFailure Mode Pattern (FMEA-lite)\n\nYou mention “consequence,” but not what failure looks like and how it gets detected.\n\nFAILURE MODE DETAIL:\nWhen stating a failure consequence, also state:\n- Failure signature (what symptom appears),\n- Primary cause (what typically triggers it),\n- Detection method (what check reveals it).\nKeep each failure detail to 1–2 sentences.\n\n\n\nTool/Component Justification Upgrade\nYou already justify tools, but add “selection criteria” so it becomes vocational.\nTOOL/COMPONENT SELECTION CRITERIA:\nWhen a tool/component is mentioned, add one selection criterion:\nrating, capacity, compatibility, safety class, material suitability, or standard compliance.\nExample formats: \"rated for ___\", \"compatible with ___\", \"selected because ___ prevents ___\".\n\nStandards & Schemes: “Name-or-Omit” Gate\nPrevents vague mentions and hallucinations.\nSTANDARDS/SCHEMES GATE:\nIf mentioning standards/schemes, include exact names and the specific relevance and realestic.\nIf exact name or relevance is uncertain, omit entirely (no generic placeholders like “various schemes/IEC guidelines”).\n6) Anti-Generic Language Filter (brochure killer)\n\nThis forces replacement of vague adjectives with mechanisms.\n\nANTI-GENERIC FILTER:\nAvoid vague nouns/adjectives such as: important, significant, attractive, efficient, robust, viable, key, crucial, numerous.\nWhen such words appear, immediately replace with mechanism + measurable impact (what changes, by how much, and why)\n\n\n----------------------------------------\nSTYLE REQUIREMENTS\n----------------------------------------\n\n- Use Simple Present Tense.\n- Use Active Voice.\n- Do NOT use first-person, second-person, or third-person pronouns.\n- Use process-centered narration.\n- Avoid managerial command tone (avoid excessive \"must\", \"should\", \"ensure\").\n- Avoid brochure-style adjectives (sustainable, effective, efficient) unless technically explained.\n- Replace abstract benefits with mechanism explanation.\n-use 12- 20 words per sentence\n\n----------------------------------------\nFLOW CONTROL\n----------------------------------------\n\n- Each paragraph must logically grow from the previous one.\n- No disconnected sentence stacking.\n- Use cause–effect transitions such as:\n  “Because X affects Y, Z becomes necessary.”\n- No repetition of previously explained meaning.\n\n\n\nPROGRESSION PRESSURE RULE:\n\nAt the end of every major section, introduce one unresolved operational dependency that requires the next section to resolve it.\n\nEach new section must begin by resolving the dependency introduced previously.\n\n----------------------------------------\nWORD COUNT RULE\n----------------------------------------\n\nTotal word count must be strictly between 650 and 700 words.\nDo not exceed or go below.\n\n----------------------------------------\nQUALITY CHECK BEFORE OUTPUT\n----------------------------------------\n\nBefore final output, internally verify:\n\n1. All Must Cover sub-topics included.\n2. Depth level rules satisfied structurally.\n3. Technical density requirement satisfied.\n4. Opening length satisfied.\n5. No pronouns used.\n6. No managerial tone.\n7. No shallow standalone action sentences.\n8. Word count should be 650 -700\n\nIf any rule is violated, internally revise before output.\n\nOutput plain continuous narration only.\nNo headings.\nNo formatting.\nNo commentary."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -2608,
+        496
+      ],
+      "id": "48fc52e0-cb60-4e4d-8274-33d5e154d8c6",
+      "name": "Message a model4",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert instructional designer specializing in vocational and skill-based education. When given job role information and Learning Outcomes, your job is to analyze each LO and produce a structured depth map. Do not generate any script content yet — only the depth map."
+            },
+            {
+              "content": "=You have received the following job role information:\n\nSector:{{ $json.body.sector }} \nJob Role: {{ $json.body.job_role }}\nTopic: {{ $json.body.topic }}\nTarget Duration: 7 minutes\nNSQF:{{ $json.body.nsqf_range }}\n\n\nLearning Outcomes:\n{{ $json.body.outcomes }}\n\nAnalyze each LO and output the depth map in exactly \nthis format:\n\nLO[number] — [LO Title] ([Depth Level])\nExplain what this LO covers and why this depth level \nwas chosen in one sentence.\nThen list exactly what must be covered as bullet points:\n- [specific sub-topic or concept to cover]\n- [specific sub-topic or concept to cover]\n- [specific sub-topic or concept to cover]\nEstimated Time: [X minutes]\n\nDEPTH LEVEL RULES:\n- Assign DEEP when: the LO involves a process, parameters, \n  technical operation, or a concept that causes errors \n  if misunderstood\n- Assign MEDIUM when: the LO involves awareness, duties, \n  or safety where key points and one example are sufficient\n- Assign BRIEF when: the LO is introductory or recall-based \n  and needs only 2-3 sentences\n\nCONTENT RULES:\n- The bullet points under each LO must be specific — \n  not generic\n- Mention exact sub-topics, parameters, defect names, \n  tool names, or process steps relevant to this job role\n- Do not write vague bullets like \"explain the concept\" \n  or \"describe the process\"\n- Estimated times must add up to 7 minutes total\n\nEXAMPLE OUTPUT FORMAT:\nLO3 — Machine Setup (Deep) — All 5 parameters covered \nindividually with what it controls, value ranges, and \nwhat goes wrong. Includes setup sequence and pre-start \nchecklist.\n- Voltage: what it controls, automotive range, \n  failure if wrong\n- Current/wire feed speed: penetration depth, \n  typical values\n- Polarity: DCEP vs DCEN, effect on heat distribution\n- Shielding gas flow: rate range, porosity risk if low\n- Wire/electrode type: grade selection, diameter range\n- 7-step setup sequence in correct order\n- Pre-start checklist before first arc\nEstimated Time: 2.5 minutes\n\nOutput the depth map for all LOs. Nothing else.\n\nEnsure all estimated times add up to 7 minutes total."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -3104,
+        528
+      ],
+      "id": "91daa441-bc51-4d0a-a70b-bc2ca7f83d82",
+      "name": "lo category",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "your-webhook-path",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -4368,
+        752
+      ],
+      "id": "260ee5f2-c338-40bb-ab04-07afaf9f6300",
+      "name": "Webhook",
+      "webhookId": "your-webhook-id"
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "content": "={{ $json.output[0].content[0].text }}",
+        "name": "Text vsl",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2032,
+        432
+      ],
+      "id": "dca29abc-edd6-4e88-b317-72b8032b1824",
+      "name": "Create file from text5",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "assignement gen": {
+      "main": [
+        [
+          {
+            "node": "assignement  review",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "assignment review",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create file from text1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "assignement  review": {
+      "main": [
+        []
+      ]
+    },
+    "assessment gen": {
+      "main": [
+        [
+          {
+            "node": "assesment review check",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create file from text4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "text gen": {
+      "main": [
+        [
+          {
+            "node": "text review",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "text review checker",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create file from text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "text review": {
+      "main": [
+        []
+      ]
+    },
+    "Switch": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Job role flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job role flow": {
+      "main": [
+        [
+          {
+            "node": "generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generator": {
+      "main": [
+        [
+          {
+            "node": "Create file from text2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lo category": {
+      "main": [
+        [
+          {
+            "node": "Message a model4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model4": {
+      "main": [
+        [
+          {
+            "node": "Create file from text5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "lo category",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "text gen",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "assignement gen",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "assessment gen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6cc4b0bc-ba15-4bf7-a6ca-9885dc85315e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a6f11f5f2e9b181cdd547ecc3bf2412f7cebb4371d15cae648e8296b7bc1c105"
+  },
+  "id": "gjLmfEYJtLSj68Bp",
+  "tags": []
+}

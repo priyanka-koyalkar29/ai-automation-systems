@@ -1,0 +1,661 @@
+{
+  "name": "VSL_SimScript_Gen_v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "your-webhook-path",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -736,
+        -160
+      ],
+      "id": "09d54b2b-3557-4397-9a88-939db5d28aa3",
+      "name": "Webhook",
+      "webhookId": "your-webhook-id"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8af2ef03-2910-4616-89f0-44df953e37ed",
+              "name": "body.topic",
+              "value": "={{ $('Webhook').item.json.body.parameters.topic }}",
+              "type": "string"
+            },
+            {
+              "id": "e9eef11f-2cf7-4f4f-ac4f-531498ffa5f1",
+              "name": "body.domain",
+              "value": "={{ $('Webhook').item.json.body.parameters.domain }}",
+              "type": "string"
+            },
+            {
+              "id": "dd18ece4-d407-43a9-9bd6-4bdb57df23ac",
+              "name": "body.subdomain",
+              "value": "={{ $('Webhook').item.json.body.parameters.subDomain }}",
+              "type": "string"
+            },
+            {
+              "id": "eab04418-cf01-4233-b933-aa264ee58c86",
+              "name": "body.simulationtype",
+              "value": "={{ $('Webhook').item.json.body.parameters.simulationType }}",
+              "type": "string"
+            },
+            {
+              "id": "7c624b7b-9faf-49dd-aa6d-812c46c996d2",
+              "name": "body.duration",
+              "value": "={{ $json.body.parameters.duration }}",
+              "type": "number"
+            },
+            {
+              "id": "a60a97c8-d286-4367-9a35-d2aac1fe6522",
+              "name": "body.nsqf",
+              "value": "=[ {{ $json.body.parameters.nsqfLevels }}]",
+              "type": "array"
+            },
+            {
+              "id": "9397c667-712f-45de-b25d-b3812b8f109d",
+              "name": "=body.LO",
+              "value": "={{ $('Webhook').item.json.body.parameters.learningOutcomes }}",
+              "type": "string"
+            },
+            {
+              "id": "830480da-7f15-4eff-84b8-7e993c7fa22e",
+              "name": "flowidea",
+              "value": "={{ $('Webhook').item.json.body.parameters.flowIdea }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -128,
+        -160
+      ],
+      "id": "18091c84-e1c4-4c85-8550-aab62b3d5ac2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        800,
+        64
+      ],
+      "id": "9cf6e594-d772-4fb1-bca1-a6bc9104db2e",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\n// ---------- helpers ----------\nfunction safeParseJSON(x) {\n  if (typeof x !== \"string\") return null;\n\n  const cleaned = x\n    .trim()\n    .replace(/^```(?:json)?/i, \"\")\n    .replace(/```$/i, \"\")\n    .trim();\n\n  try {\n    return JSON.parse(cleaned);\n  } catch (e) {\n    return null;\n  }\n}\n\nfunction isPlainObject(v) {\n  return v !== null && typeof v === \"object\" && !Array.isArray(v);\n}\n\nfunction getFirstKeyByRegex(obj, regex) {\n  if (!isPlainObject(obj)) return null;\n  const keys = Object.keys(obj);\n  for (let i = 0; i < keys.length; i++) {\n    if (regex.test(keys[i])) return keys[i];\n  }\n  return null;\n}\n\nfunction pick(obj, keys, fallback) {\n  for (let i = 0; i < keys.length; i++) {\n    const k = keys[i];\n    if (obj && obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== \"\") {\n      return obj[k];\n    }\n  }\n  return fallback || \"\";\n}\n\n// ---------- input normalize ----------\nlet data = item;\n\nif (typeof item.output === \"string\") {\n  const parsed = safeParseJSON(item.output);\n  if (parsed) data = parsed;\n}\n\nif (typeof data === \"string\") {\n  const parsed = safeParseJSON(data);\n  if (parsed) data = parsed;\n}\n\n// ---------- get modules ----------\nlet modulesIn = [];\n\nif (data && Array.isArray(data.modules)) {\n  modulesIn = data.modules;\n} else if (data && data.output && Array.isArray(data.output.modules)) {\n  modulesIn = data.output.modules;\n}\n\n// ---------- transform ----------\nconst modulesOut = [];\n\nfor (let i = 0; i < modulesIn.length; i++) {\n  const m = modulesIn[i];\n  if (!isPlainObject(m)) continue;\n\n  const moduleKey =\n    getFirstKeyByRegex(m, /^module\\s*\\d+/i) ||\n    getFirstKeyByRegex(m, /^title\\s*\\d+/i);\n\n  const title = String(\n    pick(m, [moduleKey, \"module_title\", \"title\"], \"Module \" + (i + 1))\n  ).trim();\n\n  const stepsIn = Array.isArray(m.steps) ? m.steps : [];\n  const stepsOut = [];\n\n  for (let j = 0; j < stepsIn.length; j++) {\n    const s = stepsIn[j];\n    if (!isPlainObject(s)) continue;\n\n    const stepKey = getFirstKeyByRegex(s, /^step\\s*\\d+/i);\n\n    stepsOut.push({\n  step: \"step \" + (j + 1),\n  step_title: String(s.step || s.step_title || \"\").trim(),\n  Overview: s.Overview || s.overview || \"\",\n  user_action: s.user_action || s.userAction || \"\"\n});\n  }\n\n  modulesOut.push({\n    title,\n    steps: stepsOut\n  });\n}\n\nreturn [\n  {\n    json: {\n      modules: modulesOut\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -160
+      ],
+      "id": "ae34349f-be7b-43ee-9094-2ca2adef4e4f",
+      "name": "Code",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1440,
+        -160
+      ],
+      "id": "8d9fff14-d6f0-4743-8d8b-ede7156a504d",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "test",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "116ed780-6e2f-4c4d-8ae3-925bd9b98c72"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "test"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c0a11311-6376-4f2e-9481-583824452d9d",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "generate_steps",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "generate_steps"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ebe49bc5-e89a-49e9-a418-afe0c8e0c966",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "=generate_script",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "generate_script"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -496,
+        -176
+      ],
+      "id": "5abc0e48-28bb-4cab-ac42-3d824c29b31b",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (!items || items.length === 0) {\n  throw new Error(\"No input data received from Switch node\");\n}\n\nconst inputData = items[0].json || {};\nconsole.log(\"Input data keys:\", Object.keys(inputData));\n\n// ---------- helpers ----------\nfunction safeParseJSON(x) {\n  if (typeof x !== \"string\") return null;\n\n  const cleaned = x\n    .trim()\n    .replace(/^```(?:json)?/i, \"\")\n    .replace(/```$/i, \"\")\n    .trim();\n\n  try {\n    return JSON.parse(cleaned);\n  } catch (e) {\n    return null;\n  }\n}\n\nfunction preview(v, n) {\n  try {\n    return JSON.stringify(v).substring(0, n || 200);\n  } catch (e) {\n    return String(v).substring(0, n || 200);\n  }\n}\n\n// ---------- body normalize ----------\nif (!inputData.body) {\n  throw new Error(\"No 'body' field found in Switch output\");\n}\n\nlet body = inputData.body;\n\n// If body is a string (common in webhook), parse it\nif (typeof body === \"string\") {\n  const parsedBody = safeParseJSON(body);\n  if (parsedBody) body = parsedBody;\n}\n\nconsole.log(\"Body type:\", typeof body);\nconsole.log(\"Body keys:\", body && typeof body === \"object\" ? Object.keys(body) : \"body-not-object\");\n\n// ---------- extract domain/topic/modules ----------\nlet domain = \"\";\nlet topic = \"\";\nlet modules = null;\n\n// parameters can also be a string\nlet params = body && body.parameters ? body.parameters : null;\nif (typeof params === \"string\") {\n  const parsedParams = safeParseJSON(params);\n  if (parsedParams) params = parsedParams;\n}\n\n// domain/topic\nif (params && typeof params === \"object\") {\n  domain = params.domain || \"\";\n  topic = params.topic || \"\";\n}\n\n// candidate modules sources (in priority order)\nconst candidates = [];\n\n// 1) parameters.modules / parameters.output\nif (params) {\n  if (params.modules !== undefined) candidates.push(params.modules);\n  if (params.output !== undefined) candidates.push(params.output);\n}\n\n// 2) body.modules / body.output\nif (body && typeof body === \"object\") {\n  if (body.modules !== undefined) candidates.push(body.modules);\n  if (body.output !== undefined) candidates.push(body.output);\n}\n\n// 3) sometimes output is wrapped: { output: { modules: [...] } }\nfor (let i = 0; i < candidates.length; i++) {\n  const c = candidates[i];\n\n  // if string, try parse\n  if (typeof c === \"string\") {\n    const parsed = safeParseJSON(c);\n    if (parsed) candidates[i] = parsed;\n  }\n}\n\n// pick first candidate that yields modules array\nfor (let i = 0; i < candidates.length; i++) {\n  const c = candidates[i];\n\n  if (Array.isArray(c)) {\n    modules = c;\n    break;\n  }\n\n  if (c && typeof c === \"object\" && Array.isArray(c.modules)) {\n    modules = c.modules;\n    break;\n  }\n\n  // sometimes: { data: { modules: [...] } }\n  if (c && typeof c === \"object\" && c.data && Array.isArray(c.data.modules)) {\n    modules = c.data.modules;\n    break;\n  }\n}\n\nif (!modules) {\n  const bodyKeys = body && typeof body === \"object\" ? Object.keys(body).join(\", \") : \"(body not object)\";\n  const paramKeys = params && typeof params === \"object\" ? Object.keys(params).join(\", \") : \"(no parameters)\";\n  throw new Error(\n    \"Cannot find modules array.\\n\" +\n    \"Body keys: \" + bodyKeys + \"\\n\" +\n    \"Parameters keys: \" + paramKeys + \"\\n\" +\n    \"Body preview: \" + preview(body, 250)\n  );\n}\n\n// validate modules\nif (!Array.isArray(modules)) {\n  throw new Error(\n    \"Modules is not an array. Type: \" + typeof modules +\n    \". Value preview: \" + preview(modules, 250)\n  );\n}\n\nif (modules.length === 0) {\n  throw new Error(\"Modules array is empty\");\n}\n\n// ---------- count total steps ----------\nlet totalSteps = 0;\nfor (let i = 0; i < modules.length; i++) {\n  const mod = modules[i];\n  if (mod && mod.steps && Array.isArray(mod.steps)) {\n    totalSteps += mod.steps.length;\n  }\n}\n\nconsole.log(\"Successfully extracted:\", {\n  domain: domain || \"Not found\",\n  topic: topic || \"Not found\",\n  moduleCount: modules.length,\n  totalSteps: totalSteps\n});\n\n// ---------- output ----------\nreturn [\n  {\n    json: {\n      domain: domain || \"Unknown Domain\",\n      topic: topic || \"Unknown Topic\",\n      modules: modules,\n      metadata: {\n        total_modules: modules.length,\n        total_steps: totalSteps,\n        generated_at: new Date().toISOString()\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        240
+      ],
+      "id": "b5c2b64c-e9e0-4ff1-9e02-d3793816bf14",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an Interactive Tutorial Script Writer for vocational and educational simulations.\n\nINPUTS:\n\nDomain: {{ $json.domain }}\nTopic: {{ $json.topic }}\nModule Number: {{ $json.module_number }} of {{ $json.total_modules }}\n\nMODULE DATA:\n{{ JSON.stringify($json.module, null, 2) }}\n\nTASK:\n\nGenerate:\n\n• Module-level Aim\n• Materials Required\n• Precautions\n• 5-stage interactive script for EVERY step in this module\n\nIMPORTANT:\n\nThe step “Overview” and “user_action” fields are provided only as reference for context.\nDo NOT include them in the output.\n\nMODULE-LEVEL RULES\n\nAim\n1–2 sentences\nLearning- and operation-focused\nDerived strictly from Domain and Topic\nNo instructional verbs (avoid perform, analyze, configure, execute, manage)\n\nMaterials Required\nList format\nOnly items clearly relevant to the topic\nNo imaginary or generic tools\nPrecautions\nList format\nSafety, handling, or operational precautions only\nTopic-specific\nNo generic advice\n\nSTEP-LEVEL RULES\n\nFor EVERY step in the module, generate exactly 5 stages:\n\nVo1_aim:\n12-17 words\nGuided instructor tone\nActive voice only\nPresent-moment operational focus\nDerived strictly from the step overview\nNo UI verbs (Click, Tap, Select, Drag, etc.)\nNo passive constructions\nNo compliance or justification language\nMust sound like a trainer guiding a live session\n\nVo2_instruction:\n- 12–17 words only.\n- Must be a clear UI action command.\n- Must start strictly with one allowed verb.\n- Must reference a visible UI element.\n- Must end with a clear visible outcome (no abstract phrasing).\n\nAllowed verbs (only):\nClick, Select, Drag, Drop, Toggle, Type, Adjust, Connect, Rotate, Slide,Press, Tap\n\nDo NOT start with:\nChoose, Enter, Proceed, Initiate, Activate, Configure, Perform\n\nExamples of correct format:\n\"Click the start button to begin the welding cycle.\"\n\"Select the marked area to define the welding path.\"\n\"Toggle the power switch to turn on the controller.\"\n\ntext_display:\n- Must be a single complete sentence.\n- Must seamlessly combine Vo1_aim + Vo2_instruction.\n- No repetition.\n- No line breaks.\n- No instructional tone.\n- Must read naturally as one flowing sentence.\n\n\nUser Action & Simulation Response\nMust follow EXACT format:\n\"User <allowed_action> <UI element> and <system visual response>.\"\nThird-person only\nPassive UI interaction only\nNo abstract verbs\nNo internal logic\nMust describe visible UI behavior\n\nVo3_conclusion\n12-17 words\nConfirm visible system state\nValidate completion\nIndicate readiness for next action\n\nSTRICT USER ACTION VERBS (ONLY these allowed)\n\nClick\nSelect\nDrag\nDrop\nToggle\nType\nAdjust\nConnect\nRotate\nSlide\n\nVALID USER ACTION PATTERNS\n\nUser clicks <UI element>.\nUser selects <option>.\nUser drags <item> to <target area> and drops it.\nUser toggles <setting> ON / OFF.\nUser types <value> into <field>.\nUser adjusts <control> to <value>.\nUser connects <source> to <destination>.\nUser rotates <object>.\nUser slides <control>.\n\nVALID SYSTEM RESPONSE PHRASES\n\nopens and displays <content>\nhighlights <object>\nactivates <indicator>\nupdates <status>\nshows <visual change>\nanimates <movement>\nreveals <component>\nconfirms <state visually>\n\nDo NOT describe backend logic.\nDo NOT explain system reasoning.\nOnly visible UI behavior.\n\nNUMBERING RULES (STRICT)\n\nDo NOT hardcode module numbers\n\nUse key exactly:\n\"module {{ $json.module_number }}\"\n\nStep numbering MUST restart from:\n\"step 1\", \"step 2\", \"step 3\" … in order\n\nMODULE TITLE RULE\n\nThe module title MUST match the input module title exactly\n\nOUTPUT FORMAT (JSON ONLY — EXACT STRUCTURE)\n\nReturn ONLY valid JSON.\nNo markdown.\nNo explanation.\nStart with { and end with }.\n\n{\n\"module {{ $json.module_number }}\": \"<exact title from input>\",\n\"aim\": \"<derived aim>\",\n\"materials_required\": [\n\"<item 1>\",\n\"<item 2>\"\n],\n\"precautions\": [\n\"<precaution 1>\",\n\"<precaution 2>\"\n],\n\"steps\": [\n{\n\"step 1\": {\n\"step_title\": \"<exact step title>\",\n\"Vo1_aim\": \"<25–40 words neutral operational context derived from overview>\",\n\"Vo2_instruction\": \"<15–25 words clear UI command>\",\n\"text_display\": \"<Single sentence combining Vo1_aim and Vo2_instruction>\",\n\"User Action & Simulation Response\": \"User <allowed_action> <UI element> and <system visual response>.\",\n\"Vo3_conclusion\": \"<20–35 words confirming visible completion>\"\n}\n},\n{\n\"step 2\": {\n\"step_title\": \"<exact step title>\",\n\"Vo1_aim\": \"<25–40 words neutral operational context derived from overview>\",\n\"Vo2_instruction\": \"<15–25 words clear UI command>\",\n\"text_display\": \"<Single sentence combining Vo1_aim and Vo2_instruction>\",\n\"User Action & Simulation Response\": \"User <allowed_action> <UI element> and <system visual response>.\",\n\"Vo3_conclusion\": \"<20–35 words confirming visible completion>\"\n}\n}\n]\n}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        352,
+        304
+      ],
+      "id": "2f5400a1-0ef4-4da9-933c-a3bbbbc75e49",
+      "name": "Script Generation1",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1824,
+        416
+      ],
+      "id": "e12e3ba2-02be-49f4-ad57-8b31c96d5618",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        32
+      ],
+      "id": "a6cce466-5d29-4387-a26c-9bb06b0c98ce",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.all()[0].json;\n\nconst domain = inputData.domain;\nconst topic = inputData.topic;\nconst modules = inputData.modules;\n\n// Create separate item for each module\nreturn modules.map((module, index) => ({\n  json: {\n    domain: domain,\n    topic: topic,\n    module_number: index + 1,\n    total_modules: modules.length,\n    module: module\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        240
+      ],
+      "id": "43fe8e26-eba0-47aa-a0c9-353398c58eed",
+      "name": "split"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Get domain and topic safely (avoid crash if missing)\nconst domain = items[0]?.json?.domain ?? \"\";\nconst topic = items[0]?.json?.topic ?? \"\";\n\n// Clean + parse helper (fixes trailing commas and code fences)\nfunction cleanJsonString(str) {\n  return String(str)\n    .replace(/```json/gi, \"\")\n    .replace(/```/g, \"\")\n    .trim()\n    // Remove trailing commas before } or ]\n    .replace(/,\\s*(?=[}\\]])/g, \"\");\n}\n\nconst modules = [];\n\nfor (const item of items) {\n  let aiOutput = item.json.output ?? item.json.text ?? item.json;\n\n  // If it's a string, clean and parse to JSON\n  if (typeof aiOutput === \"string\") {\n    const cleaned = cleanJsonString(aiOutput);\n\n    try {\n      aiOutput = JSON.parse(cleaned);\n    } catch (err) {\n      // Skip bad module instead of crashing the whole workflow\n      console.log(\"⚠️ Skipping invalid JSON module. Parse error:\", err.message);\n      console.log(\"---- Cleaned content start ----\");\n      console.log(cleaned);\n      console.log(\"---- Cleaned content end ----\");\n      continue;\n    }\n  }\n\n  // If parsed object is valid, push it\n  if (aiOutput && typeof aiOutput === \"object\") {\n    modules.push(aiOutput);\n  }\n}\n\n// Return combined result\nreturn [\n  {\n    json: {\n      domain,\n      topic,\n      modules,\n      metadata: {\n        total_modules: modules.length,\n        generated_at: new Date().toISOString(),\n      },\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        368
+      ],
+      "id": "1f897021-5d13-4342-aa1f-24303f797b5b",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        352,
+        496
+      ],
+      "id": "b389a28b-86be-4822-b0cb-9496bd8efa66",
+      "name": "OpenAI Chat Model5",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a Simulation Flow Generator for vocational and STEM interactive simulations.\n\nROLE CONTEXT:\nYou generate the real-world operational process exactly as it occurs in practice.\nYour output defines WHAT happens, not how a user interacts with it.\n\nINPUTS:\n- Topic: {{ $json.body.topic }}\n- Domain: {{ $json.body.domain }}\n- Duration: {{ $json.body.duration }}\n- NSQF Level: {{ $json.body.nsqf }}\n- Subdomain: {{ $json.body.subdomain }}\n- Simulation Type: {{ $json.body.simulationtype }}\n- Flow Idea: {{ $json.flowidea }}\n\nINTERPRETATION RULES:\n- If Simulation Type is provided, use it.\n- If Flow Idea is provided, treat it as partial and integrate it into a complete workflow.\n- Add any required preceding or following steps to make the process realistic.\n\nTASK:\nGenerate a complete operational simulation flow as sequential modules and steps.\n\nCONSTRAINTS (STRICT):\n- Use only concepts implied by inputs.\n- Follow real-world sequence exactly.\n- Include ONLY measurable physical actions.\n- Do NOT include observation, inspection, verification, or viewing actions.\n- Do NOT include user interface actions.\n- Do NOT mention learners, training, or assessments.\n- Output JSON only.\n\nSTEP RULES (CRITICAL):\n- Each step must contain exactly ONE measurable physical action.\n- One verb + one object only.\n- Action must cause a physical state change or measurable operation.\n- No abstract or cognitive verbs.\n\nOUTPUT FORMAT (EXACT):\n\n{\n  \"modules\": [\n    {\n      \"module 1\": \"<Module title>\",\n      \"description\": \"<Operational description>\",\n      \"steps\": [\n        { \"step 1\": \"<Measurable physical action>\" },\n        { \"step 2\": \"<Measurable physical action>\" }\n      ]\n    }\n  ]\n}\n\nReturn ONLY valid JSON.\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        -160
+      ],
+      "id": "8c6edfba-80b5-48dd-9d76-f4d621df4d73",
+      "name": "module steps gen"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a Simulation Interaction Designer for vocational and STEM interactive simulations.\n\nROLE CONTEXT:\nYou transform existing module steps into simulator-ready interactions\nwithout changing the original meaning, intent, or sequence.\n\nINPUTS:\n- Domain: {{ $('Webhook').item.json.body.parameters.domain }}\n- Topic: {{ $('Webhook').item.json.body.parameters.topic }}\n- Modules: {{ $json.output }}\n\nTASK:\n\n1. For EACH step, generate a stepOverview.\n   - 1–2 sentences.\n   - Derived strictly from the step title.\n   - No new concepts.\n   - No commands or instructions.\n\n2. For EACH step, generate exactly ONE user_action.\n\nUSER_ACTION RULES (STRICT):\n- user_action describes ONLY a measurable user input event.\n- Must start with exactly ONE interaction verb:\n  drag, select, slide, click, connect, move, align, place,\n  choose, resize, rotate, confirm, toggle, press, assign, link\n- Observation must NOT be the action.\n- user_action may include contextual purpose text\n  (e.g., \"to view reading\"),\n  but the measurable action must be the physical interaction only.\n- No system responses, outcomes, or feedback.\n- No generic UI terms without specific objects.\n\nFORBIDDEN WORDS:\nobserve, monitor, verify, inspect, check, analyze, assess, review\n\nOUTPUT FORMAT (EXACT):\n\n{\n  \"modules\": [\n    {\n      \"title\": \"<Module title>\",\n      \"steps\": [\n        {\n          \"step\": \"<Original step title>\",\n          \"Overview\": \"<1–2 sentence overview>\",\n          \"user_action\": \"<Single measurable interaction>\"\n        }\n      ]\n    }\n  ]\n}\n\nReturn ONLY valid JSON.\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        704,
+        -160
+      ],
+      "id": "3dd0fe51-08f4-41c5-8a34-a36e2404cbf9",
+      "name": "overview useraction gen"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are a Simulation Instructional Designer for vocational and STEM interactive simulations.\n\nYour task is to generate the following sections and prepend / append them to the provided simulation script WITHOUT modifying any existing module content:\n\nSimulation Title\nSimulation Purpose\nWhat You Will Do in This Simulation\nDisclaimer\n\nSimulation Overview\nIntro – Voiceover\nOutro – Voiceover\n\nContent Rules\nMaintain plain text formatting only (no JSON, no markdown, no bullets unless naturally required).\nDo NOT change, rewrite, or summarize the existing module content.\nAll new sections must be written in clear, neutral, instructional language suitable for voiceover and screen text.\n\nThe intro must:\nMust be 20-25 words\nBegin with a welcoming tone (example: “Welcome to the {{$node[\"Webhook\"].json.body.parameters.topic}} simulation.”.”)\nClearly state what learners will learn and be able to do by the end.\nEmphasize practical application and logical understanding.\n\n\nThe outro must:\nMust be 20-25 words\nBegin with a congratulatory message.\nConfirm successful completion of the simulation.\nReinforce learning achievement and next-step motivation.\n\n\nAbout the simulation:\nTone Requirements:\nUse a direct learner-focused tone.\nStart with: “In this interactive simulation, you will learn…”\nUse “you will” (not “you’ll”).\nKeep it clear, simple, and instructional.\nAvoid casual or storytelling language.\nAvoid overly technical jargon.\nKeep it 2–3 sentences only.\nFocus on skills, understanding, and practical application.\nMention how components/processes work together (if applicable).\n\nStructure:\n\nSentence 1: State what the learner will learn or build.\nSentence 2: Explain what they will understand or explore.\nOptional Sentence 3: Mention practical or real-world relevance.\n\nWHAT YOU WILL DO IN THIS SIMULATION\nDescribe the main stages or activities the learner will perform.\nUse structured progression (setup → action → output → sustainability/testing/application).\nEmphasize hands-on interaction and learning by doing.\n\nDISCLAIMER\nClearly state educational purpose.\nMention that the simulation simplifies real-world processes.\nEncourage safe, ethical, and professional application of knowledge.\n\nSIMULATION OVERVIEW\nSummarize the full learning journey.\nMention modules or stages (if applicable).\nHighlight how the system/process works together.\nEmphasize real-world relevance or practical understanding.\n\n\n\n\n\n\n\nOutput Structure (Strict)\n-SIMULATION TITLE\n<generated>\n\n-About the SIMULATION \n<generated>\n\n-WHAT YOU WILL DO IN THIS SIMULATION\n<generated>\n\n-DISCLAIMER\n<generated>\n\n-SIMULATION OVERVIEW\n<generated>\n\n-INTRO – VOICEOVER\n<generated>\n\n-OUTRO – VOICEOVER\n<generated>\n\nInput Provided\nTopic: {{$node[\"Webhook\"].json.body.parameters.topic}}\nDomain: {{$node[\"Webhook\"].json.body.parameters.domain}}\nSimulation Script: Simulation Script: {{ JSON.stringify($node[\"Code in JavaScript1\"].json.modules, null, 2) }}\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1056,
+        432
+      ],
+      "id": "0adef8a8-8827-419c-962f-ff14c6564710",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================================\n// CLEAN DOCUMENT TEXT FORMATTER (n8n)\n// ================================\n\n// 1) Read AI header text safely\nlet aiText = $json.output?.[0]?.content?.[0]?.text || \"\";\naiText = String(aiText).replace(/\\\\n/g, \"\\n\").trim();\n\n// 2) Read modules from enrichment node (change node name if needed)\nconst modules = $node[\"Code in JavaScript1\"]?.json?.modules || [];\n\n// 3) Convert modules JSON into string\nlet modulesRaw = JSON.stringify(modules, null, 2);\n\n// 4) Convert JSON-like text into readable document style\nmodulesRaw = String(modulesRaw)\n  .replace(/\\\\n/g, \"\\n\")       // unescape newlines\n  .replace(/\\\\\"/g, '\"')        // unescape quotes\n  .replace(/[{}\\[\\]]/g, \"\")    // remove brackets and braces\n  .replace(/\"/g, \"\")           // remove quotes\n  .replace(/,\\s*/g, \"\\n\")      // commas -> new lines\n  .replace(/\\n\\s*\\n+/g, \"\\n\")  // remove extra blank lines\n  .trim();\n\n// 5) Beautify indentation + structure\nlet modulesText = modulesRaw\n  .split(\"\\n\")\n  .map(line => line.trim())\n  .filter(line => line.length > 0)\n  .map(line => {\n    // Add better layout rules\n    if (/^module\\s+\\d+\\s*:/.test(line)) return \"\\n\" + line;               // blank line before module\n    if (/^steps\\s*:/.test(line)) return \"  \" + line;                      // indent steps\n    if (/^step_name\\s*:/.test(line)) return \"    \" + line;                // indent step\n    if (/^Overview\\s*:/.test(line)) return \"      \" + line;\n    if (/^user_action\\s*:/.test(line)) return \"      \" + line;\n    if (/^tutorial_flow\\s*:/.test(line)) return \"      \" + line;\n    if (/^stage_\\d+\\s*:/.test(line)) return \"        \" + line;\n    if (/^(vo1_aim|vo2_instruction|text_display|interaction_response)\\s*:/.test(line))\n      return \"          \" + line;\n    if (/^stage_5_feedback\\s*:/.test(line)) return \"        \" + line;\n    if (/^vo3_conclusion\\s*:/.test(line)) return \"          \" + line;\n\n    return \"      \" + line; // default indent\n  })\n  .join(\"\\n\")\n  .replace(/\\n{3,}/g, \"\\n\\n\") // reduce huge gaps\n  .trim();\n\n// 6) Split OUTRO from header and keep it at end\n// 6) Extract OUTRO properly and REMOVE from header\nconst outroRegex = /- OUTRO – VOICEOVER[\\s\\S]*/i;\nlet outroPart = \"\";\nlet headerPart = aiText;\n\nconst match = aiText.match(outroRegex);\n\nif (match) {\n  outroPart = match[0].trim();\n  headerPart = aiText.replace(outroRegex, \"\").trim();\n}\n\n// 7) Final assembly (FORCE correct order)\nconst finalText = [\n  headerPart,\n  \"\",\n  modulesText,\n  \"\",\n  outroPart\n].filter(Boolean).join(\"\\n\\n\").trim();\n// 8) Return final clean document text\nreturn [\n  {\n    json: {\n      finalText\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        432
+      ],
+      "id": "344b8f9d-7f92-4d94-96d6-ddca77366100",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "content": "={{ $json.finalText }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1-CshFuu-kfg3cLYWExKfTAmjQXFSPIQU",
+          "mode": "list",
+          "cachedResultName": "sim",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1-CshFuu-kfg3cLYWExKfTAmjQXFSPIQU"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1792,
+        608
+      ],
+      "id": "65e3fbfc-c1a2-4afd-b831-df61b8c2d43c",
+      "name": "Create file from text",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "module steps gen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "overview useraction gen",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "split",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Script Generation1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "module steps gen",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split": {
+      "main": [
+        [
+          {
+            "node": "Script Generation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Script Generation1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "module steps gen": {
+      "main": [
+        [
+          {
+            "node": "overview useraction gen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "overview useraction gen": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create file from text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c3f4ae3e-fa27-41a7-bd6f-839835a8c9b9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a6f11f5f2e9b181cdd547ecc3bf2412f7cebb4371d15cae648e8296b7bc1c105"
+  },
+  "id": "3Q5bNZ2QOqekr64C",
+  "tags": []
+}

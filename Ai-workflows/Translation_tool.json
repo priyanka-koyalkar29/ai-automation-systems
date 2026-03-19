@@ -1,0 +1,1255 @@
+{
+  "name": "Translation tool Copy",
+  "nodes": [
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.body.sheetNameOrId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "storyboard_english",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        272,
+        96
+      ],
+      "id": "1235f70c-b4f1-4a07-a4f8-04407fc873c0",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/***** AUTO-DETECT HEADERS (case/space/nbsp tolerant) *****/\nconst headerAliases = {\n  scene: ['scene number','scene','scene no','scenenumber','scene_no'],\n  narr:  ['narration','narr','voice over','vo','narration (en)'],\n  tos:   ['text on screen','text-on-screen','on screen text','screen text','tos','caption','subtitle','text on screen']\n};\n\nconst normalizeKey = s => (s ?? '')\n  .toString()\n  .replace(/\\u00A0/g,' ')\n  .replace(/\\s+/g,' ')\n  .trim()\n  .toLowerCase();\n\nconst first = $('Edit Fields3').first().json;\nconst allKeys = Object.keys(first);\n\nfunction findKey(aliases){\n  for (const k of allKeys){\n    const nk = normalizeKey(k);\n    for (const a of aliases) if (nk === normalizeKey(a)) return k;\n  }\n  for (const k of allKeys){\n    const nk = normalizeKey(k);\n    for (const a of aliases) if (nk.includes(normalizeKey(a))) return k;\n  }\n  return null;\n}\n\nconst COL_SCENE = findKey(headerAliases.scene) || 'Scene number';\nconst COL_NARR  = findKey(headerAliases.narr)  || 'Narration';\nconst COL_TOS   = findKey(headerAliases.tos)   || 'Text on screen';\n\n\n/***** CLEAN VALUE HELPER *****/\nconst clean = s => (s ?? '')\n  .toString()\n  .replace(/\\r\\n?/g,'\\n')\n  .trim();\n\n\n/***** COLLECT ALL ROWS *****/\nconst rows = $items('Edit Fields3').map((it, i) => {\n  const j = it.json || {};\n  return {\n    id: i + 1,\n    scene: clean(j[COL_SCENE]),\n    narr:  clean(j[COL_NARR]),\n    tos:   clean(j[COL_TOS]),\n  };\n});\n\n\n/***** BUILD TAGGED BODY (THIS IS YOUR TRANSLATION CONTENT) *****/\nconst body = rows.map(r => `\n⟦S${r.id}⟧\nSCENE: ${r.scene || r.id}\nNARR: ${r.narr}\nTOS: ${r.tos}\n⟦/S${r.id}⟧\n`).join('\\n');\n\n\n/***** WEBHOOK VALUES *****/\nconst subject = $('Webhook1').first().json.body.subject;\nconst grade   = $('Webhook1').first().json.body.grade;\nconst referenceBox = $('Webhook1').first().json.body.referenceText|| \"\";\n\n\n/***** FULL PROMPT (YOUR EXACT INSTRUCTIONS + CONTENT) *****/\nconst prompt = `\n📘 Expert Academic Curator & Translator (Hindi)\n\nRole: You are an Expert Academic Curator. Your goal is to produce a flawless, educationally sound Hindi learning module that prioritizes factual and scientific correctness over literal translation.\n\n1. Core Principles: Accuracy & Correction\nCorrectness Over Literalism: Fix any factual, scientific, logical, or numerical errors found in the English source. Translate the intended meaning, not the mistake.\nNCERT Compliance: Strictly follow NCERT syllabus standards. Use the provided \"Reference\" input to determine specific vocabulary and terminology before translating.\nPedagogical Terms: Use formal academic terms (e.g., use अधिगम (Adhigam) instead of informal/AI-style words).\nStrictly follow NCERT syllabus standards.\nUse the following Reference Box terminology as authoritative:\n\nReference Box:\n${referenceBox}\n\n2. Formatting & Structure (Strict)\nSentence Correspondence: Maintain a strict 1:1 ratio. Do NOT merge, split, skip, or add sentences.\nTranslate every word exactly as given. Do not omit, skip, summarize, paraphrase, or add any extra words. Preserve the complete original structure and meaning.\nTag Preservation: Do NOT modify, translate, or reorder tags (e.g., ⟦S#⟧, PBRK_...). Translate only the text between them.\nOutput Only: Provide only the final translated content. No explanations or notes.\n\n3. Language & Tone\nTeacher’s Voice: Use clear, natural, and idiomatic Hindi as if a subject expert is explaining to a student.\nSimplicity: Use short sentences suitable for the specified grade level.\nGrammar: Follow standard Hindi SOV order.\n\n4. Symbols, Units & Technical Rules (No Translation)\nPreserve English Format: Keep all units, variables, equations, and formulas exactly as they appear.\nLogarithms & SS': Keep entirely in English.\nNo English in Brackets.\nUse correct academic transliteration.\n\n---------------------------------------\n\nSubject: ${subject}\nGrade: ${grade}\n\nContent to be translated:\n${body}\n`;\n\n/***** BUILD META FOR LATER NODE *****/\nconst segIdForRow = {};\nrows.forEach((r, i) => {\n  segIdForRow[i] = r.id;   // map row index → segment id\n});\n\n\nreturn [{\n  json: {\n    contents: [\n      {\n        role: \"user\",\n        parts: [{ text: prompt }]\n      }\n    ],\n\n    meta: {\n      rows,\n      segIdForRow,\n      uniqCount: rows.length\n    }\n  }\n}];\n\n\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        96
+      ],
+      "id": "db5a9d53-ffa6-4aa2-9acf-c6b2a2e54b6b",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node (JavaScript)\n// OUTPUT: one item per scene\n// Works with Gemini / AI Agent different response structures\n\n// =============================\n// HELPER\n// =============================\nfunction cleanValue(v) {\n  if (v == null) return \"\";\n  let s = String(v).trim();\n\n  if (/^n\\/a\\b/i.test(s)) return \"\";\n  if (/^na\\b/i.test(s)) return \"\";\n\n  return s.replace(/[ \\t]+$/g, \"\");\n}\n\n// =============================\n// READ INPUT (AUTO DETECT)\n// =============================\nlet raw =\n  items?.[0]?.json?.parts?.[0]?.text ||\n  items?.[0]?.json?.candidates?.[0]?.content?.parts?.[0]?.text ||\n  items?.[0]?.json?.response?.parts?.[0]?.text ||\n  items?.[0]?.json?.output ||\n  \"\";\n\n// force string\nraw = String(raw);\n\n// convert literal \"\\n\" → real new lines\nraw = raw.replace(/\\\\n/g, \"\\n\");\n\nraw = cleanValue(raw);\n\n// stop if empty\nif (!raw) return [];\n\n// =============================\n// MATCH SCENE BLOCKS\n// ⟦S1⟧ ... ⟦/S1⟧\n// =============================\nconst blockRegex = /⟦S(\\d+)⟧([\\s\\S]*?)⟦\\/S\\1⟧/g;\n\nconst scenes = [];\nlet match;\n\nwhile ((match = blockRegex.exec(raw)) !== null) {\n\n  const block = match[2] || \"\";\n\n  // ---------- Scene number ----------\n  const sceneNumMatch = block.match(\n    /^\\s*SCENE:\\s*(?:Scene\\s*)?([0-9]+)\\s*$/im\n  );\n  const sceneNumber = cleanValue(sceneNumMatch?.[1] || \"\");\n\n  // ---------- Narration ----------\n  const narrMatch = block.match(\n    /^\\s*NARR:\\s*([\\s\\S]*?)(?=^\\s*TOS:\\s*)/im\n  );\n  const narration = cleanValue(narrMatch?.[1] || \"\");\n\n  // ---------- Text on Screen ----------\n  const tosMatch = block.match(\n    /^\\s*TOS:\\s*([\\s\\S]*)$/im\n  );\n  const tos = cleanValue(tosMatch?.[1] || \"\");\n\n  // push result\n  if (sceneNumber) {\n    scenes.push({\n      \"Scene number\": sceneNumber,\n      \"Narration\": narration,\n      \"Text on Screen\": tos,\n    });\n  }\n}\n\n// =============================\n// RETURN OUTPUT\n// =============================\nreturn scenes.map(scene => ({ json: scene }));\n\n// OPTIONAL:\n// return [{ json: scenes }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3440,
+        96
+      ],
+      "id": "fe129eea-b9bb-4577-a372-c4865b7ed0a4",
+      "name": "Code6"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b903b721-b341-4f0e-b9cd-efa9871247e7",
+              "name": "Scene Number",
+              "value": "={{ $json['Scene Number'] }}",
+              "type": "string"
+            },
+            {
+              "id": "2e40ab71-77fd-4171-8577-a5729fd440ce",
+              "name": "Shot Number",
+              "value": "={{ $json['Shot Number'] }}",
+              "type": "number"
+            },
+            {
+              "id": "91bb1974-1510-4ebf-a2ad-2d57d76dc42c",
+              "name": "Narration",
+              "value": "={{ $json.Narration }}",
+              "type": "string"
+            },
+            {
+              "id": "245ae6a2-a502-4761-b3d2-c1750fe39dce",
+              "name": "Text on Screen",
+              "value": "={{ $json['Text on Screen'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        96
+      ],
+      "id": "4704f6c3-47bb-46d6-bb79-9b4918d773c0",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "your-webhook-path",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -608,
+        336
+      ],
+      "id": "266ee3b3-1bd0-4e7d-afe7-6761b2d71ece",
+      "name": "Webhook1",
+      "webhookId": "WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7fa0e9f1-9a19-47eb-a365-3901e1feff63",
+              "name": "Scene number",
+              "value": "={{ $json['Scene number'] }}",
+              "type": "string"
+            },
+            {
+              "id": "557a0e6c-8bfa-4f2e-984f-402d306cfca2",
+              "name": "Narration",
+              "value": "={{ $json.Narration }}",
+              "type": "string"
+            },
+            {
+              "id": "4b66674e-2926-49e1-9a81-0873bb9ce356",
+              "name": "Text on Screen",
+              "value": "={{ $json['Text on Screen'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3744,
+        96
+      ],
+      "id": "1d70f16f-bcef-4822-afe1-615efdd493dc",
+      "name": "Edit Fields4",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Webhook1').item.json.body.sheetNameOrId }}",
+          "mode": "id"
+        },
+        "title": "=storyboard_hindi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        944,
+        96
+      ],
+      "id": "dce52e9a-c88a-45d0-ae4d-1a4870b371be",
+      "name": "Create sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Webhook1').item.json.body.sheetNameOrId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "storyboard_hindi",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Scene number",
+              "displayName": "Scene number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Narration",
+              "displayName": "Narration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Text on Screen",
+              "displayName": "Text on Screen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4432,
+        96
+      ],
+      "id": "1a91b0cc-fded-433e-99cb-fdd76f9ddea4",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "445a71bb-357a-4b78-931f-915a5478c70f",
+              "name": "Scene Number",
+              "value": "={{ $json['Scene Number'] }}",
+              "type": "string"
+            },
+            {
+              "id": "18e40a1b-bd6b-4edd-8488-d8a44d787103",
+              "name": "Narration",
+              "value": "={{ $json.Narration }}",
+              "type": "string"
+            },
+            {
+              "id": "b1cb6a3e-a461-48f2-9444-67fd5cc603c8",
+              "name": "Text on Screen",
+              "value": "={{ $json[\"Text on Screen\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "5cff87f0-3d4a-4559-994f-1dfc6dda4e79",
+              "name": "Visual Description",
+              "value": "={{ $json['Visual Description'] }}",
+              "type": "string"
+            },
+            {
+              "id": "0d1e7560-cfab-4d65-b7f5-b25ee33eb1d7",
+              "name": "Shot Number",
+              "value": "={{ $json['Shot Number'] }}",
+              "type": "number"
+            },
+            {
+              "id": "89e14034-065a-4c86-b8de-72496e26a02c",
+              "name": "Shot Description",
+              "value": "={{ $json['Shot Description'] }}",
+              "type": "string"
+            },
+            {
+              "id": "0edb9409-3652-4daa-86f8-97182202ea1a",
+              "name": "Asset Type",
+              "value": "={{ $json['Asset Type'] }}",
+              "type": "string"
+            },
+            {
+              "id": "a54e2614-0ab6-489a-b99c-4e2dc485c9d1",
+              "name": "Keyword Generation",
+              "value": "={{ $json['Keyword Generation'] }}",
+              "type": "string"
+            },
+            {
+              "id": "144061ce-0888-46f7-ae22-1339d6d38a09",
+              "name": "Reference Link/ 3D Model Elements",
+              "value": "={{ $json['Reference Link/ 3D Model Elements'] }}",
+              "type": "string"
+            },
+            {
+              "id": "4ebca26d-4a62-4da2-b904-110465a292f3",
+              "name": "Video Links",
+              "value": "={{ $json['Video Links'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        96
+      ],
+      "id": "20490be3-cf6b-49ce-8211-da4582c917dc",
+      "name": "Edit Fields5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Columns that can be replaced from translation\nconst REPLACE_COLS = [\n  \"Narration\",\n  \"Text on Screen\",\n  \"Visual Description\"\n];\n\nconst output = [];\n\n// Loop through all input items\nfor (const item of $input.all()) {\n\n  // Original row data\n  const originalRow = item.json;\n\n  // Make a copy so Scene number is preserved\n  const mergedRow = { ...originalRow };\n\n  // If you have translated values in the same item, use them\n  const translationRow = item.json;\n\n  // Replace only non-empty translated columns\n  for (const col of REPLACE_COLS) {\n    const newValue = translationRow[col];\n\n    if (\n      newValue !== undefined &&\n      newValue !== null &&\n      String(newValue).trim() !== \"\" &&\n      String(newValue).toLowerCase() !== \"empty\"\n    ) {\n      mergedRow[col] = newValue;\n    }\n  }\n\n  // IMPORTANT: ensure Scene number stays\n  mergedRow[\"Scene number\"] = originalRow[\"Scene number\"];\n\n  output.push({ json: mergedRow });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        96
+      ],
+      "id": "9c75b822-4c48-46a1-bd22-2ced827770e2",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.contentType }}",
+                    "rightValue": "sheetname",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "5c1ec647-d346-409a-9bd0-7616524f2cd4"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ac06a5cb-936a-4c75-ab83-f289aa068320",
+                    "leftValue": "={{ $json.body.contentType }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -224,
+        336
+      ],
+      "id": "9fbe7f77-cde2-4afc-8a01-eee80d763eb5",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        6144,
+        720
+      ],
+      "id": "54d549cc-9dd1-4c15-bee8-e2d4d6cd8fe4",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "880bedd6-6767-4371-a5c9-07cab421e305",
+              "name": "Status",
+              "value": "Translated",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4784,
+        96
+      ],
+      "id": "077fbf93-8bfa-4781-ae78-3ad15ff28609",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        1168
+      ],
+      "id": "d688ca66-15eb-4c30-bcd9-db9518878336",
+      "name": "OpenAI Chat Model4",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "maxTokens": 9000,
+          "temperature": 0.3,
+          "timeout": 300000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2336,
+        352
+      ],
+      "id": "8276ab90-a58e-4b9a-b23f-855732f99c72",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Text Translation",
+        "height": 624,
+        "width": 2896,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -112,
+        688
+      ],
+      "typeVersion": 1,
+      "id": "5a9776bc-4859-45a1-bf06-623ecbfeef20",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Google Sheet Translation \n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 560,
+        "width": 4448,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        144,
+        -32
+      ],
+      "typeVersion": 1,
+      "id": "e394b064-621c-47a4-9478-b9d1711f377b",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1840,
+        2128
+      ],
+      "id": "721546a2-1b59-4ff4-a83b-7dee80b85bee",
+      "name": "OpenAI Chat Model3",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1616,
+        2144
+      ],
+      "id": "e1adb6ce-9051-491f-8729-67aca8614edb",
+      "name": "OpenAI Chat Model5",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a senior Hindi language reviewer for school textbooks and e-learning.\n\nINPUTS\n- Translated Content (Hindi): {{ $json.output }}\n- Subject: {{ $('Webhook1').item.json.body.subject }}\n- Grade: {{ $('Webhook1').item.json.body.grade }}\n\nTASK\nReview the Hindi translation strictly against the source intent (assume sentence alignment to the English original). Do not rewrite the whole text—only flag issues and propose precise fixes. Keep subject and grade in mind.\n\nMANDATORY CHECKS\n1) Sentence alignment: one Hindi sentence per original sentence, same order (flag if misaligned).\n2) Meaning fidelity: no additions/omissions/hallucinations.\n3) Subject-fit terminology (NCERT/common school usage); glossary compliance if implied by subject.\n4) Grade-fit tone & readability.\n5) Grammar & spelling (agreement, tense, postpositions, matras, typos).\n6) Punctuation & danda usage; colon/semicolon spacing; numerals where appropriate.\n7) Numbers/symbols/formulas/units/code untouched and correct (e.g., V, m/s, H₂O, F=ma); SI spacing (25 °C, 5 m/s).\n8) Term consistency across the file (same Hindi for same concept).\n9) Formatting structure preserved (headings, lists, figure/table captions, labels).\n10) Diagram/table/figure labels match body text.\n11) Inclusivity/neutral language; avoid biased/gendered defaults.\n\nSUBJECT-SPECIFIC REMINDERS\n- Science: correct law/reaction names; arrows/chem notation (→, ⇌), states (s,l,g,aq) not translated.\n- Mathematics: symbols (∠, △, ⟂, ∥, ≤, ≥) intact; logical connectors (अतः/क्योंकि) in proofs.\n- CS: do not translate code, class/API names; keep UI strings in English if they are clickable labels.\n\nGRADE ADJUSTMENTS\n- G1–5: short simple sentences; concrete examples.\n- G6–8: introduce precise terms with brief apposition (e.g., घनत्व (Density)).\n- G9–12: rigorous terms and notation; derivations/proofs precise.\n\nSCORING RULES\n- Score each dimension 1–5 (1 = poor, 3 = acceptable, 5 = excellent).\n- Compute raw average: average_raw = mean(scores[*]).\n- Add penalizations for critical errors (see penalties list). Each penalty deducts points.\n- final_score_5pt = clamp(average_raw - total_penalty_points, 0, 5).\n- Also provide percentages:\n  - average_raw_pct = round(average_raw / 5 * 100)\n  - final_score_pct = round(final_score_5pt / 5 * 100)\n\nPENALIZATION GUIDELINES (deduct per occurrence; cap total_penalty_points at 2.5)\n- Misalignment of sentences/sections: 0.2–0.5 each (severity-based)\n- Wrong/unsafe change to numbers/symbols/units/equations/code: 0.3–0.7 each\n- Glossary/conflict on key term (subject-critical): 0.2–0.4 each\n- Grade-inappropriate register hindering comprehension: 0.2–0.4\n- Factual distortion or added/omitted constraint: 0.3–0.7\n- Systematic inconsistency of a recurring term: 0.2–0.5\n(Choose conservative values; justify each deduction.)\n\noutput:\n\n- a single Overall average score for the whole translation.\nlist of the penalized issues and their reason",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1616,
+        1872
+      ],
+      "id": "7817bce6-1b0c-4e44-9a2b-d6251a0ed849",
+      "name": "AI Agent (R)",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an Expert Academic Curator and Translator. Your primary goal is to create a factually correct, clear, and educationally sound learning module in Hindi. Your responsibility is to produce a flawless final product, not just a literal translation.\n\nContent to be translated: {{ $json.candidates }} Subject: {{ $('Webhook1').item.json.body.subject }} Grade: {{ $('Webhook1').item.json.body.grade }}\n\n🔬 Core Principle: Correctness Over Literalism\nYour primary duty is to the final learner, not the source text. This means you must prioritize factual, logical, and scientific accuracy above a literal, word-for-word translation.\n\nCorrect Errors in the Source Material: If the English source text contains a clear error, you must fix it in the Hindi translation. Do not translate an error just because it is in the source.\n\nScientific Errors: For example, if the source incorrectly describes a scientific process (like confusing the effect of pan mass with block mass), your translation must describe the process correctly.\n\nLogical/Numerical Errors: If the source gives a contradictory instruction (e.g., \"increase a 1 kg mass to 200 g\"), translate the intended, logical action (e.g., \"add 200 g of additional mass\" or \"set the mass to 200 g,\" depending on context).\n\n✍️ Tone & Style\nTeacher's Voice: Translate in clear, natural Hindi, as if a teacher is explaining the concept to a student.\n\nSimplicity: Use short, simple sentences that are easy for the specified grade level to understand.\n\nTruly Natural Phrasing:\n\nTranslate the idea, not just the words. Rephrase sentences completely so they sound like they were originally written in Hindi by a subject expert.\n\nAvoid \"translatorese\" and structural copies (calques). For example, a literal translation of \"will complete understanding\" is \"समझना पूरा करेंगे,\" which is unnatural. A better, more idiomatic translation is simply \"समझेंगे\" or \"समझ विकसित करेंगे.\"\n\n🧩 Terminology, Grammar & Structure\nSubject-Specific Terminology: Prioritize precise, standard textbook terminology over common, everyday words. For example, in Physics, always use \"द्रव्यमान\" for \"mass\" and \"भार\" or \"वज़न\" for \"weight.\"\n\nGlossary and Consistency: Follow any provided glossary strictly. If none is provided, use standard textbook terms and maintain consistency.\n\nTransliteration: Transliterate technical terms commonly used in English (e.g., Laser → लेज़र).\n\nSentence Correspondence: Maintain a one-to-one correspondence between English and Hindi sentences. Do not merge, split, or skip sentences.\n\nGrammar: Use correct grammar, tense, voice, and the natural Hindi word order (Subject → Object → Verb).",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -1888,
+        1872
+      ],
+      "id": "1a47f172-d985-4ea6-9893-b0183f677f4b",
+      "name": "AI Agent1 (Translator)",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a careful Hindi copy editor for NCERT-style content (Grades 9–12). INPUT - Translated Hindi content: {{ $json.candidates[0].content.parts[0].text }}- Subject (optional): {{ $('Webhook1').item.json.body.subject }} - Grade (optional): {{ $('Webhook1').item.json.body.grade }}\nTASK \n\nCorrect ONLY the following, without altering meaning, sentence order, tags, or structure:\n1) PUNCTUATION & DANDA USAGE\n   - End each sentence with danda (।), not a period, unless the period is part of code or an abbreviation.\n   - Normalize spacing around , : ; — ( ) % — one standard space AFTER punctuation (none before), except closing punctuation.\n   - Use Hindi quotes for inline speech/labels if present: “ … ” (or « … »), but do not add quotes where none existed.\n   - Remove duplicate spaces; keep one space between words; preserve line breaks/paragraphs as in source.\n\n2) NUMBERS / SYMBOLS / UNITS / CODE\n   - Keep numerals as Arabic digits for measurements and counts (e.g., 1 किग्रा, 25 °C, 5 m/s, 3 × 10^5).\n   - Insert a standard space between number and unit: 25 °C, 5 m/s, 2 kg, 100 g.\n   - Do NOT translate or alter symbols, variables, formulas, chemical notation, or code (V, I, g, π, μ, H₂O, →, ⇌, (s)/(l)/(g)/(aq), ∠, ⟂, ∥, ≤, ≥).\n   - Preserve code/UI strings exactly if present (e.g., Record Data, Reset, dropdown, slider), unless they were already localized, in which case keep them consistent.\n\n3) TERM CONSISTENCY (WITHIN THE PROVIDED TEXT)\n   - Identify concept terms that appear with multiple variants (e.g., “दर्ज/सेव/सहेजना”, “रीसेट/डिफ़ॉल्ट पर लाना”, “सीमान्त घर्षण/अधिकतम स्थैतिक घर्षण”).\n   - Choose ONE widely taught, standard school/NCERT-compatible form per concept and apply it consistently across the text.\n   - Do NOT change established scientific terms or any symbols; only unify Hindi wording variants.\n   - If mass vs weight appears, ensure: “mass” = द्रव्यमान; “weight (force)” = भार (don’t replace symbols/units).\n\n4) REDUCTION & CONSISTENCY (ENHANCEMENT)\n   - Redundancy reduction: remove repeated words/phrases that do not add meaning (e.g., duplicate instructions), but DO NOT delete any unique information or entire sentences.\n   - Internal consistency: align conflicting descriptions of the same item/action (e.g., “दर्ज/सेव/सहेजना”, “हटाना/डिफ़ॉल्ट पर लाना”), and resolve timing/quantity phrasing conflicts WITHOUT inventing numbers; prefer neutral, accurate wording (e.g., “अवधि स्पष्ट करें…”).\n   - Concise phrasing: prefer tight, natural constructions (e.g., replace “जब… तो…” with “…पर…” when it preserves meaning; “पीछे या आगे” → “आगे-पीछे” for continuous actions).\n   - Context accuracy: ensure the sentence reflects the actual step context (e.g., force due to pan mass vs block mass; remove hallucinated objects like “वायरिंग ब्लॉक”).\n   - UI/Instruction standardization: use one consistent phrasing for repeated button actions across steps (e.g., “‘डेटा रिकॉर्ड करें’ बटन दबाकर मान **सहेजें**”; “रीसेट करें” → “डिफ़ॉल्ट पर **वापस लाएँ**”), keeping tags/labels intact.\n\n------------------------------------------\nADDITIVE ENHANCEMENTS (GENERALIZED; MINIMAL)\n------------------------------------------\n\n5) TONE & READABILITY (GENERALIZED)\n   - Use a clear teacher-like instructional voice.\n   - Prefer imperatives for user actions (“तैयार करें”, “मापें”, “रिकॉर्ड करें”); for descriptive/process lines, use neutral declaratives (“…तैयार किया जाता है/रखा जाता है”).\n   - Replace stiff/literal phrases with standard textbook Hindi when meaning is unchanged (e.g., “सटीक तैयारी कौशल का अभ्यास करें” → “सटीकता से तैयार करने का अभ्यास करें”; “पानी तैयार करें” → “पानी भरें”).\n   - Prefer comprehension verbs aligned with learning tasks (“समझने/व्याख्या करने/पुष्टि करने”) rather than “समझाने” where learners interpret data.\n   - Keep sentences concise; avoid stacked postpositions or redundant verb chains.\n\n6) GRAMMAR PRECISION & REFERENCE CLARITY\n   - Pronoun/relative clarity: fix “जिसे/जिसमें” ambiguity to reflect correct possession or inclusion (e.g., “स्प्रिंग… **जिसमें** हुक हो”).\n   - Agency/passive: do not attribute unintended agency to objects (e.g., “झटके **देना**” → “झटके **लगना/न लगें**”).\n   - Collocation tightness: remove redundant verb stacks (e.g., “क्लैंप करके… **कसें**” → “**लंबवत क्लैंप करें**”).\n   - Required postpositions/genitives: ensure forms like “ग्राफ़ **बनाने के** प्रयोग में…” are correct.\n\n7) DIMENSION POLICIES (GENERALIZED)\n   A) Meaning Fidelity\n      - Preserve all factual constraints, quantities, and relationships; no additions, omissions, or hallucinations.\n      - Keep step-context intact (e.g., do not swap block-mass vs pan-mass roles).\n      - Clarify ambiguous user actions so intended interaction is unmistakable (e.g., measure along flame height, not “with the flame”).\n   B) Subject-fit Terminology\n      - Use standard NCERT/board-compatible terms for the subject (Physics/Chemistry/Math/Biology) without coining rare neologisms.\n      - Maintain domain-correct distinctions (e.g., द्रव्यमान vs भार; साम्यावस्था स्थिति vs माध्य स्थिति for oscillations).\n      - If materials/components are specified (e.g., “सूती धागा”), keep them precise across steps; avoid drifting to “तार” unless source differentiates both.\n   C) Term Consistency (Cross-text)\n      - Enforce one-to-one mapping for key concepts across the file (same Hindi every time for the same idea).\n      - Normalize repeated UI verbs/labels to a single form.\n      - If two variants are truly distinct concepts, disambiguate via context words, not by swapping terms.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1248,
+        720
+      ],
+      "id": "acb98752-2a6e-4575-9230-8555e7176397",
+      "name": "AI Agent2 (Translator)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a careful Hindi copy editor for NCERT-style content (Grades 9–12). INPUT - Translated Hindi content: {{ $json.candidates[0].content.parts[0].text }} - Subject (optional): {{ $('Webhook1').item.json.body.subject }} - Grade (optional): {{ $('Webhook1').item.json.body.grade }}\nTASK \n\nCorrect ONLY the following, without altering meaning, sentence order, tags, or structure:\n1) PUNCTUATION & DANDA USAGE\n   - End each sentence with danda (।), not a period, unless the period is part of code or an abbreviation.\n   - Normalize spacing around , : ; — ( ) % — one standard space AFTER punctuation (none before), except closing punctuation.\n   - Use Hindi quotes for inline speech/labels if present: “ … ” (or « … »), but do not add quotes where none existed.\n   - Remove duplicate spaces; keep one space between words; preserve line breaks/paragraphs as in source.\n\n2) NUMBERS / SYMBOLS / UNITS / CODE\n   - Keep numerals as Arabic digits for measurements and counts (e.g., 1 किग्रा, 25 °C, 5 m/s, 3 × 10^5).\n   - Insert a standard space between number and unit: 25 °C, 5 m/s, 2 kg, 100 g.\n   - Do NOT translate or alter symbols, variables, formulas, chemical notation, or code (V, I, g, π, μ, H₂O, →, ⇌, (s)/(l)/(g)/(aq), ∠, ⟂, ∥, ≤, ≥).\n   - Preserve code/UI strings exactly if present (e.g., Record Data, Reset, dropdown, slider), unless they were already localized, in which case keep them consistent.\n\n3) TERM CONSISTENCY (WITHIN THE PROVIDED TEXT)\n   - Identify concept terms that appear with multiple variants (e.g., “दर्ज/सेव/सहेजना”, “रीसेट/डिफ़ॉल्ट पर लाना”, “सीमान्त घर्षण/अधिकतम स्थैतिक घर्षण”).\n   - Choose ONE widely taught, standard school/NCERT-compatible form per concept and apply it consistently across the text.\n   - Do NOT change established scientific terms or any symbols; only unify Hindi wording variants.\n   - If mass vs weight appears, ensure: “mass” = द्रव्यमान; “weight (force)” = भार (don’t replace symbols/units).\n\n4) REDUCTION & CONSISTENCY (ENHANCEMENT)\n   - Redundancy reduction: remove repeated words/phrases that do not add meaning (e.g., duplicate instructions), but DO NOT delete any unique information or entire sentences.\n   - Internal consistency: align conflicting descriptions of the same item/action (e.g., “दर्ज/सेव/सहेजना”, “हटाना/डिफ़ॉल्ट पर लाना”), and resolve timing/quantity phrasing conflicts WITHOUT inventing numbers; prefer neutral, accurate wording (e.g., “अवधि स्पष्ट करें…”).\n   - Concise phrasing: prefer tight, natural constructions (e.g., replace “जब… तो…” with “…पर…” when it preserves meaning; “पीछे या आगे” → “आगे-पीछे” for continuous actions).\n   - Context accuracy: ensure the sentence reflects the actual step context (e.g., force due to pan mass vs block mass; remove hallucinated objects like “वायरिंग ब्लॉक”).\n   - UI/Instruction standardization: use one consistent phrasing for repeated button actions across steps (e.g., “‘डेटा रिकॉर्ड करें’ बटन दबाकर मान **सहेजें**”; “रीसेट करें” → “डिफ़ॉल्ट पर **वापस लाएँ**”), keeping tags/labels intact.\n\n------------------------------------------\nADDITIVE ENHANCEMENTS (GENERALIZED; MINIMAL)\n------------------------------------------\n\n5) TONE & READABILITY (GENERALIZED)\n   - Use a clear teacher-like instructional voice.\n   - Prefer imperatives for user actions (“तैयार करें”, “मापें”, “रिकॉर्ड करें”); for descriptive/process lines, use neutral declaratives (“…तैयार किया जाता है/रखा जाता है”).\n   - Replace stiff/literal phrases with standard textbook Hindi when meaning is unchanged (e.g., “सटीक तैयारी कौशल का अभ्यास करें” → “सटीकता से तैयार करने का अभ्यास करें”; “पानी तैयार करें” → “पानी भरें”).\n   - Prefer comprehension verbs aligned with learning tasks (“समझने/व्याख्या करने/पुष्टि करने”) rather than “समझाने” where learners interpret data.\n   - Keep sentences concise; avoid stacked postpositions or redundant verb chains.\n\n6) GRAMMAR PRECISION & REFERENCE CLARITY\n   - Pronoun/relative clarity: fix “जिसे/जिसमें” ambiguity to reflect correct possession or inclusion (e.g., “स्प्रिंग… **जिसमें** हुक हो”).\n   - Agency/passive: do not attribute unintended agency to objects (e.g., “झटके **देना**” → “झटके **लगना/न लगें**”).\n   - Collocation tightness: remove redundant verb stacks (e.g., “क्लैंप करके… **कसें**” → “**लंबवत क्लैंप करें**”).\n   - Required postpositions/genitives: ensure forms like “ग्राफ़ **बनाने के** प्रयोग में…” are correct.\n\n7) DIMENSION POLICIES (GENERALIZED)\n   A) Meaning Fidelity\n      - Preserve all factual constraints, quantities, and relationships; no additions, omissions, or hallucinations.\n      - Keep step-context intact (e.g., do not swap block-mass vs pan-mass roles).\n      - Clarify ambiguous user actions so intended interaction is unmistakable (e.g., measure along flame height, not “with the flame”).\n   B) Subject-fit Terminology\n      - Use standard NCERT/board-compatible terms for the subject (Physics/Chemistry/Math/Biology) without coining rare neologisms.\n      - Maintain domain-correct distinctions (e.g., द्रव्यमान vs भार; साम्यावस्था स्थिति vs माध्य स्थिति for oscillations).\n      - If materials/components are specified (e.g., “सूती धागा”), keep them precise across steps; avoid drifting to “तार” unless source differentiates both.\n   C) Term Consistency (Cross-text)\n      - Enforce one-to-one mapping for key concepts across the file (same Hindi every time for the same idea).\n      - Normalize repeated UI verbs/labels to a single form.\n      - If two variants are truly distinct concepts, disambiguate via context words, not by swapping terms.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        2064,
+        96
+      ],
+      "id": "e00ce2f7-df2c-4e5c-80ae-c73dd58b0210",
+      "name": "AI Agent (T)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "AIzaSyBeKilxOtxiFiZyC8iPadWk_BzZRpyXahs"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "={{ $json.contents }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1472,
+        96
+      ],
+      "id": "b37c4320-1d38-4dd6-a69c-2408b7088658",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "AIzaSyBeKilxOtxiFiZyC8iPadWk_BzZRpyXahs"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "={{ $json.contents }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3152,
+        352
+      ],
+      "id": "7fd886ba-c802-46be-877a-4261870f279e",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "/************ READ INPUTS (same as your OpenAI node) ************/\nconst hindiText = $json.output || \"\";\nconst subject = $('Webhook1').item.json.body.subject || \"\";\nconst grade = $('Webhook1').item.json.body.grade || \"\";\nconst referenceBox = $('Webhook1').first().json.body.referenceText || \"\";\n\n\n/************ BUILD PROMPT ************/\nconst prompt = `\nYou are a senior Hindi language reviewer for school textbooks and e-learning.\n\nINPUTS\n- Translated Content (Hindi): ${hindiText}\n- Subject: ${subject}\n- Grade: ${grade}\n- Official Reference Terminology (NCERT-Based):\n${referenceBox}\n\n\nTASK\nReview the Hindi translation strictly against the source intent (assume sentence alignment to the English original). Do not rewrite the whole text—only flag issues and propose precise fixes. Keep subject and grade in mind.\n\nMANDATORY CHECKS\n1) Sentence alignment: one Hindi sentence per original sentence, same order (flag if misaligned).\n2) Meaning fidelity: no additions/omissions/hallucinations.\n3) Strict NCERT Terminology Compliance:\n   - Compare the translated content against the provided Reference Terminology.\n   - Verify that exact NCERT-approved terms are used.\n   - If a required reference term is missing, replaced, or inconsistently used → flag it.\n   - List each mismatch clearly.\n4) Grade-fit tone & readability.\n5) Grammar & spelling (agreement, tense, postpositions, matras, typos).\n6) Punctuation & danda usage; colon/semicolon spacing; numerals where appropriate.\n7) Numbers/symbols/formulas/units/code untouched and correct (e.g., V, m/s, H₂O, F=ma); SI spacing (25 °C, 5 m/s).\n8) Term consistency across the file (same Hindi for same concept).\n9) Formatting structure preserved (headings, lists, figure/table captions, labels).\n10) Diagram/table/figure labels match body text.\n11) Inclusivity/neutral language; avoid biased/gendered defaults.\n\nSUBJECT-SPECIFIC REMINDERS\n- Science: correct law/reaction names; arrows/chem notation (→, ⇌), states (s,l,g,aq) not translated.\n- Mathematics: symbols (∠, △, ⟂, ∥, ≤, ≥) intact; logical connectors (अतः/क्योंकि) in proofs.\n- CS: do not translate code, class/API names; keep UI strings in English if they are clickable labels.\n\nGRADE ADJUSTMENTS\n- G1–5: short simple sentences; concrete examples.\n- G6–8: introduce precise terms with brief apposition (e.g., घनत्व (Density)).\n- G9–12: rigorous terms and notation; derivations/proofs precise.\n\nSCORING RULES\n- Score each dimension 1–5 (1 = poor, 3 = acceptable, 5 = excellent).\n- Compute raw average: average_raw = mean(scores[*]).\n- Add penalizations for critical errors (see penalties list). Each penalty deducts points.\n- final_score_5pt = clamp(average_raw - total_penalty_points, 0, 5).\n- Also provide percentages:\n  - average_raw_pct = round(average_raw / 5 * 100)\n  - final_score_pct = round(final_score_5pt / 5 * 100)\n\nPENALIZATION GUIDELINES (deduct per occurrence; cap total_penalty_points at 2.5)\n- Misalignment of sentences/sections: 0.2–0.5 each (severity-based)\n- Wrong/unsafe change to numbers/symbols/units/equations/code: 0.3–0.7 each\n- Reference terminology violation (NCERT mismatch/missing term): 0.3–0.6 each\n- Grade-inappropriate register hindering comprehension: 0.2–0.4\n- Factual distortion or added/omitted constraint: 0.3–0.7\n- Systematic inconsistency of a recurring term: 0.2–0.5\n(Choose conservative values; justify each deduction.)\n\noutput:\n- A single Overall average score for the whole translation.\n- Final percentage score.\n- List of penalized issues and their reason.\n- Separate section titled: \"Reference Terminology Audit\"\n  • Terms correctly used\n  • Terms missing\n  • Terms incorrectly substituted\n`;\n\n\n/************ GEMINI REQUIRED FORMAT ************/\nreturn [\n  {\n    json: {\n      contents: [\n        {\n          role: \"user\",\n          parts: [\n            { text: prompt }\n          ]\n        }\n      ]\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2928,
+        352
+      ],
+      "id": "cd68a4dc-97e0-47c5-be14-c7474a38278a",
+      "name": "Codein JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================\n// EXTRACT VALUES FROM WEBHOOK\n// ==========================\nconst TextBox = $input.first().json.body.TextBox || \"\";\nconst subject = $input.first().json.body.subject || \"\";\nconst grade   = $input.first().json.body.grade || \"\";\nconst referenceBox = $input.first().json.body.referenceText|| \"\";\n\n// ==========================\n// BUILD FINAL PROMPT\n// ==========================\nconst prompt = `\nYou are an Expert Academic Curator and Translator.\n\nYour primary goal is to create a factually correct, clear, and educationally sound learning module in Hindi.\nYour responsibility is to produce a flawless final product, not just a literal translation.\n\nTranslate ONLY the content between the markers:\n<<<START>>>\nand\n<<<END>>>\n\nDo NOT translate anything outside these markers.\nDo NOT add explanations.\nOutput ONLY the final translated Hindi text.\n\nSubject: ${subject}\nGrade: ${grade}\n📘 NCERT Terminology Reference:\nBelow is the official reference terminology extracted from NCERT or curriculum guidelines.\nYou MUST strictly follow this terminology when translating.\nIf any term in the source text appears in this reference,\nuse the exact Hindi terminology from this reference.\n\nReference Box Content:\n${referenceBox}\n\n🔬 Core Principle: Correctness Over Literalism\nYour primary duty is to the final learner, not the source text.\nPrioritize factual, logical, and scientific accuracy over word-for-word translation.\n\nIf the English source contains a clear factual, logical, or numerical error,\ncorrect it in the Hindi translation.\n\n✍️ Tone & Style\n• Use clear, natural Hindi like a teacher explaining to a student.\n• Use short, simple sentences suitable for Grade ${grade}.\n• Translate ideas, not just words.\n• Avoid literal structural translation.\n\n🧩 Terminology & Grammar\n• Use correct standard textbook terminology for ${subject}.\n• Maintain terminology consistency.\n• Transliterate commonly used technical English terms.\n• Maintain sentence-to-sentence correspondence.\n• Follow natural Hindi word order (Subject → Object → Verb).\n\n<<<START>>>\n${TextBox}\n<<<END>>>\n`;\n\n// ==========================\n// RETURN GEMINI API FORMAT\n// ==========================\nreturn [\n  {\n    json: {\n      contents: [\n        {\n          parts: [\n            {\n              text: prompt\n            }\n          ]\n        }\n      ]\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        720
+      ],
+      "id": "569d3eb7-de98-4008-88f4-5b0bcd4da50e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "AIzaSyBeKilxOtxiFiZyC8iPadWk_BzZRpyXahs"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "={{ $json.contents }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        640,
+        720
+      ],
+      "id": "301db79e-6631-4837-a911-9842b51563ad",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "/************ READ INPUTS ************/\nconst hindiText = $input.first().json.output || \"\";\nconst subject   = $('Webhook1').item.json.body.subject || \"\";\nconst grade     = $('Webhook1').item.json.body.grade || \"\";\nconst referenceBox = $('Webhook1').first().json.body.referenceText || \"\";\n\n\n/************ BUILD PROMPT ************/\nconst prompt = `\nYou are a senior Hindi language reviewer for school textbooks and e-learning.\n\nINPUTS\n- Translated Content (Hindi):\n${hindiText}\n- Subject: ${subject}\n- Grade: ${grade}\n- Official Reference Terminology (NCERT-Based):\n${referenceBox}\n\n\nTASK\nReview the Hindi translation strictly against the source intent \n(assume sentence alignment to the English original).\n\nDo NOT rewrite the entire text.\nOnly:\n• Flag issues\n• Propose precise corrections\n• Apply scoring rules\n\n\nMANDATORY CHECKS\n1) Sentence alignment: one Hindi sentence per original sentence, same order.\n2) Meaning fidelity: no additions/omissions/hallucinations.\n3) Strict NCERT Terminology Compliance:\n   - Compare the translated content against the provided Reference Terminology.\n   - Verify that exact NCERT-approved terms are used.\n   - If a required reference term is missing, replaced, or inconsistently used → flag it.\n   - List each mismatch clearly.\n4) Grade-fit tone & readability.\n5) Grammar & spelling.\n6) Punctuation & danda usage; proper spacing.\n7) Numbers/symbols/formulas/units/code untouched and correct.\n8) Term consistency across the file.\n9) Formatting structure preserved.\n10) Diagram/table/figure labels match body text.\n11) Inclusivity and neutral language.\n\n\nSUBJECT-SPECIFIC REMINDERS\n- Science: correct law/reaction names; arrows (→, ⇌), states (s,l,g,aq) untouched.\n- Mathematics: symbols (∠, △, ⟂, ∥, ≤, ≥) intact.\n- CS: do NOT translate code, class/API names;keep UI strings in English if they are clickable labels.\n\n\nGRADE ADJUSTMENTS\n- G1–5: simple sentences.\n- G6–8: introduce precise terms with short explanation.\n- G9–12: rigorous terms and notation.\n\n\nSCORING RULES\n- Score each dimension 1–5 (1 = poor, 3 = acceptable, 5 = excellent).\n- Compute raw average: average_raw = mean(scores[*]).\n- Add penalizations for critical errors (see penalties list). Each penalty deducts points.\n- final_score_5pt = clamp(average_raw - total_penalty_points, 0, 5).\n- Also provide percentages:\n  - average_raw_pct = round(average_raw / 5 * 100)\n  - final_score_pct = round(final_score_5pt / 5 * 100)\n\nPENALIZATION GUIDELINES\n- Misalignment of sentences/sections: 0.2–0.5 each (severity-based)\n- Wrong/unsafe change to numbers/symbols/units/equations/code: 0.3–0.7 each\n- Reference terminology violation (NCERT mismatch/missing term): 0.3–0.6 each\n- Grade-inappropriate register hindering comprehension: 0.2–0.4\n- Factual distortion or added/omitted constraint: 0.3–0.7\n- Systematic inconsistency of a recurring term: 0.2–0.5\n(Choose conservative values; justify each deduction.)\n\n\nFINAL OUTPUT FORMAT (STRICT):\n1) Overall Final Score (5-point scale + percentage)\n2) Raw Average Score (percentage)\n3) List of penalized issues with:\n   - Issue description\n   - Penalty applied\n   - Reason for deduction\n\nDo NOT rewrite the full translation.\n`;\n\n\n/************ RETURN GEMINI FORMAT ************/\nreturn [\n  {\n    json: {\n      contents: [\n        {\n          parts: [\n            { text: prompt }\n          ]\n        }\n      ]\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        928
+      ],
+      "id": "ccd60bdd-25cf-4e0b-a7b8-81a6e4e4fb56",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "AIzaSyBeKilxOtxiFiZyC8iPadWk_BzZRpyXahs"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "={{ $json.contents }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2256,
+        928
+      ],
+      "id": "6c2b3b32-be42-42fd-bcef-21aa972aa970",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get translated Hindi text from previous node\n// ⚠️ IMPORTANT: adjust field if needed after checking AI output\nconst translatedText =\n  $json.output ||\n  $json.text ||\n  $json.response ||\n  \"\";\n\n// File name from frontend\nconst fileName = $json.sheetNameOrId || \"Simulation_File\";\n\n// Clean HTML entities if present\nconst cleanText = translatedText\n  .replace(/&#39;/g, \"'\")\n  .replace(/&amp;/g, \"&\")\n  .replace(/&lt;/g, \"<\")\n  .replace(/&gt;/g, \">\");\n\n// Convert to binary\nconst buffer = Buffer.from(cleanText, \"utf-8\");\n\nreturn [\n  {\n    json: {\n      fileName: fileName + \".docx\"\n    },\n    binary: {\n      data: {\n        data: buffer.toString(\"base64\"),\n        mimeType:\n          \"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\n        fileName: fileName + \".docx\"\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3920,
+        720
+      ],
+      "id": "2e90ac5b-256f-4b6e-a291-e591b650735b",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Webhook1').item.json.body.sheetNameOrId }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "15HPrJHoGxVk8AOVGcorG-QdHoHovY8km",
+          "mode": "list",
+          "cachedResultName": "Translations ",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/15HPrJHoGxVk8AOVGcorG-QdHoHovY8km"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4832,
+        720
+      ],
+      "id": "6d43dbac-a686-477c-9c2e-fe7c1cecc360",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "YOUR_CREDENTIAL_NAME"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook1": [
+      {
+        "json": {
+          "headers": {
+            "host": "oakskidzlearn.app.n8n.cloud",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+            "content-length": "8151",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.9",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "183.82.126.231",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "IN",
+            "cf-ray": "9db1dbac9c852b45-HYD",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "origin": "null",
+            "priority": "u=1, i",
+            "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-forwarded-for": "183.82.126.231, 172.68.166.142",
+            "x-forwarded-host": "oakskidzlearn.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-64-59b7fcf5ff-6xl5h",
+            "x-is-trusted": "yes",
+            "x-real-ip": "183.82.126.231"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "grade": "Grade 11",
+            "subject": "General",
+            "language": "Hindi",
+            "contentType": "sheetname",
+            "TextBox": "",
+            "sheetNameOrId": "1VcJKxaK0iVDMki4Y5LDTZEa5co3oSJE89upHCU-rueM",
+            "referenceText": "| English Term                        | NCERT / Technical Hindi Terminology |\n| ----------------------------------- | ----------------------------------- |\n| Automotive Welding                  | ऑटोमोबाइल वेल्डिंग / वाहन वेल्डिंग  |\n| Vehicle Manufacturing               | वाहन निर्माण                        |\n| Welding Operator                    | वेल्डिंग ऑपरेटर / वेल्डिंग संचालक   |\n| Welding Machine                     | वेल्डिंग मशीन                       |\n| Welding Process                     | वेल्डिंग प्रक्रिया                  |\n| Vehicle Assembly                    | वाहन संयोजन                         |\n| Manufacturing Industry              | विनिर्माण उद्योग                    |\n| Welding Skills                      | वेल्डिंग कौशल                       |\n| Precision                           | सटीकता                              |\n| Efficiency                          | दक्षता                              |\n| Durability                          | स्थायित्व                           |\n| Safety                              | सुरक्षा                             |\n| Welding Technique                   | वेल्डिंग तकनीक                      |\n| Assembly Line                       | असेंबली लाइन / संयोजन पंक्ति        |\n| Manufacturing Hub                   | विनिर्माण केंद्र                    |\n| Global Standards                    | वैश्विक मानक                        |\n| Welding Setup                       | वेल्डिंग सेट-अप / वेल्डिंग व्यवस्था |\n| Electrode                           | इलेक्ट्रोड                          |\n| Filler Wire                         | फिलर तार                            |\n| Welding Electrode                   | वेल्डिंग इलेक्ट्रोड                 |\n| Engineering Drawing                 | अभियांत्रिकी आरेख                   |\n| Welding Symbols                     | वेल्डिंग प्रतीक                     |\n| Dimensions                          | आयाम                                |\n| Joint Details                       | जोड़ विवरण                          |\n| Machine Parameters                  | मशीन मानक                           |\n| Voltage                             | वोल्टेज                             |\n| Current                             | धारा                                |\n| Polarity                            | ध्रुवता                             |\n| Gas Flow                            | गैस प्रवाह                          |\n| Heat Input                          | ऊष्मा प्रवेश                        |\n| Penetration                         | प्रवेश गहराई                        |\n| Arc Stability                       | आर्क स्थिरता                        |\n| Weld Bead                           | वेल्ड बीड                           |\n| Arc Ignition                        | आर्क प्रज्वलन                       |\n| Spatter                             | स्पैटर / धातु छींटे                 |\n| Molten Weld Pool                    | पिघला हुआ वेल्ड पूल                 |\n| Atmospheric Contamination           | वायुमंडलीय प्रदूषण                  |\n| Welding Process (MMA)               | मैनुअल मेटल आर्क वेल्डिंग           |\n| MIG Welding                         | मेटल इनर्ट गैस वेल्डिंग             |\n| MAG Welding                         | मेटल एक्टिव गैस वेल्डिंग            |\n| Spot Welding                        | स्पॉट वेल्डिंग                      |\n| Robotic Welding                     | रोबोटिक वेल्डिंग                    |\n| Material Thickness                  | सामग्री मोटाई                       |\n| Mild Steel                          | माइल्ड स्टील                        |\n| Coated Electrode                    | लेपित इलेक्ट्रोड                    |\n| Weld Strength                       | वेल्ड मजबूती                        |\n| Weld Durability                     | वेल्ड स्थायित्व                     |\n| Workpiece                           | कार्य-टुकड़ा                        |\n| Alignment                           | संरेखण                              |\n| Clamping                            | क्लैम्पिंग / जकड़ना                 |\n| Fixtures                            | फिक्स्चर                            |\n| Jigs                                | जिग                                 |\n| Clamps                              | क्लैम्प                             |\n| Welding Operation                   | वेल्डिंग संचालन                     |\n| Manual Welding                      | मैनुअल वेल्डिंग                     |\n| Robotic Machine                     | रोबोटिक मशीन                        |\n| Programmed Path                     | प्रोग्रामित पथ                      |\n| Repeatability                       | पुनरावृत्ति क्षमता                  |\n| Uniformity                          | समानता                              |\n| Visual Inspection                   | दृश्य निरीक्षण                      |\n| Welding Defects                     | वेल्ड दोष                           |\n| Crack                               | दरार                                |\n| Porosity                            | छिद्रता                             |\n| Undercut                            | अंडरकट                              |\n| Incomplete Fusion                   | अपूर्ण संलयन                        |\n| Weld Gauge                          | वेल्ड मापी / वेल्ड गेज              |\n| Bead Size                           | बीड आकार                            |\n| Production Line                     | उत्पादन पंक्ति                      |\n| Quality Control                     | गुणवत्ता नियंत्रण                   |\n| Personal Protective Equipment (PPE) | व्यक्तिगत सुरक्षा उपकरण             |\n| Hot Metal Handling                  | गरम धातु संभालना                    |\n| Clean Workspace                     | स्वच्छ कार्यस्थल                    |\n| Industry Safety Standards           | औद्योगिक सुरक्षा मानक               |\n| Automotive Sector                   | ऑटोमोबाइल क्षेत्र                   |\n| Skilled Operator                    | कुशल संचालक                         |\n"
+          },
+          "webhookUrl": "https://oakskidzlearn.app.n8n.cloud/webhook/b21fb79d-ea92-4628-92f2-bb7074f96062",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code6": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Create sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create sheet1": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields5": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2 (Translator)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (T)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1 (Translator)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (R)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1 (Translator)": {
+      "main": [
+        [
+          {
+            "node": "AI Agent (R)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent2 (Translator)": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent (T)": {
+      "main": [
+        [
+          {
+            "node": "Codein JavaScript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent (T)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        []
+      ]
+    },
+    "Codein JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "AI Agent2 (Translator)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "16682fd7-721e-43c0-a168-e5ca728641b4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a6f11f5f2e9b181cdd547ecc3bf2412f7cebb4371d15cae648e8296b7bc1c105"
+  },
+  "id": "s8DWszulwiUEt3Vm",
+  "tags": []
+}
