@@ -42,6 +42,11 @@ This pattern ensures:
 - Output format is enforced at every transition
 
 ---
+##  Why n8n?
+
+- Visual orchestration of complex workflows  
+- Faster debugging  
+- Scalable automation pipelines 
 
 ## Tech Stack
 
@@ -200,10 +205,6 @@ rather than silently passing bad data downstream.
 > in this repository.
 
 ---
-## What This Internship Is Teaching Me
-
-I came in knowing how to use AI tools.
-I'm leaving with the ability to build AI systems.
 The difference:
 
 | Using AI Tools | Building AI Systems |
@@ -221,5 +222,5 @@ That's what separates a prototype from a production pipeline.
 🙋‍♀️ Author
 Priyanka Koyalkar
 Gold Medalist in Statistics | AI Developer | MCA Graduate
- https://www.linkedin.com/in/k-p-priyanka 
+https://www.linkedin.com/in/k-p-priyanka 
 
